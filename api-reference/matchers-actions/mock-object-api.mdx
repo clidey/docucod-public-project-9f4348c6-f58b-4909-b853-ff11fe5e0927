@@ -1,0 +1,331 @@
+---
+title: "Mock Objects: Class Declaration and Method Mocking"
+description: "Details how to define mock classes with MOCK_METHOD, control strictness (NiceMock, StrictMock), manage call expectations (EXPECT_CALL, ON_CALL), and verify interaction histories. Essential for leveraging the full power of GoogleMock in robust unit and integration testing."
+---
+
+# Mock Objects: Class Declaration and Method Mocking
+
+This page details how to define mock classes using `MOCK_METHOD`, how to control mock object strictness with `NiceMock` and `StrictMock`, manage call expectations via `EXPECT_CALL` and `ON_CALL`, and verify interaction histories. Mastering these capabilities unlocks the full power of GoogleMock, empowering you to write precise, expressive, and robust unit and integration tests.
+
+---
+
+## Defining Mock Classes with `MOCK_METHOD`
+
+Mock classes form the backbone of GoogleMock’s testing paradigm. Creating a mock class involves subclassing an interface or concrete class and declaring mock methods in its `public:` section using the `MOCK_METHOD` macro.
+
+### Syntax of `MOCK_METHOD`
+
+```cpp
+MOCK_METHOD(ReturnType, MethodName, (Args...), (Qualifiers));
+```
+
+- **ReturnType**: The return type of the method you mock.
+- **MethodName**: The name of the mock method.
+- **Args...**: Argument types enclosed in parentheses.
+- **Qualifiers**: Optional, enclosed in parentheses. Examples include `const`, `override`, `noexcept`, `Calltype(...)`, or reference qualifiers like `ref(&)`.
+
+### Key Points
+
+- `MOCK_METHOD` must appear in the `public:` section regardless of the original method's access specifier.
+- To mock a `const` method, add `(const)` as a qualifier.
+- Correctly handle commas in complex types either by wrapping the type in additional parentheses or by using type aliases.
+
+### Example: Mocking a Simple Interface
+
+```cpp
+class Turtle {
+ public:
+  virtual ~Turtle() {}
+  virtual void PenUp() = 0;
+  virtual void PenDown() = 0;
+  virtual void Forward(int distance) = 0;
+  virtual int GetX() const = 0;
+};
+
+class MockTurtle : public Turtle {
+ public:
+  MOCK_METHOD(void, PenUp, (), (override));
+  MOCK_METHOD(void, PenDown, (), (override));
+  MOCK_METHOD(void, Forward, (int distance), (override));
+  MOCK_METHOD(int, GetX, (), (const, override));
+};
+```
+
+### Mocking Overloaded Methods
+
+For overloaded methods, declare each overload with its exact signature.
+
+```cpp
+class MockFoo {
+ public:
+  MOCK_METHOD(int, Add, (int x), (override));
+  MOCK_METHOD(int, Add, (int times, int x), (override));
+  MOCK_METHOD(const Bar&, GetBar, (), (const, override));
+  MOCK_METHOD(Bar&, GetBar, (), (override));
+};
+```
+
+If you don't mock all overloaded versions, use `using BaseClass::MethodName;` to bring hidden overloads into scope.
+
+### Mocking Move-Only Types
+
+GoogleMock supports mocking methods with move-only parameters (like `std::unique_ptr`). Use lambdas or custom actions to handle unique semantics.
+
+```cpp
+MOCK_METHOD(std::unique_ptr<Buzz>, MakeBuzz, (std::string text), (override));
+EXPECT_CALL(mock_buzzer_, MakeBuzz(_))
+  .WillOnce([](std::string text) {
+    return std::make_unique<Buzz>();
+  });
+```
+
+### Quick Tip: Mocking Non-Virtual Methods
+
+To mock a non-virtual method, declare that method with `MOCK_METHOD` in an unrelated mock class and use templates or compile-time injection patterns to substitute it.
+
+---
+
+## Controlling Strictness: `NiceMock`, `NaggyMock`, and `StrictMock`
+
+By default, mock objects warn on uninteresting calls—calls to mock methods without expectations. GoogleMock provides wrapper templates to control this behavior.
+
+| Wrapper          | Behavior on Uninteresting Calls                     | Usage Example                                    |
+|------------------|----------------------------------------------------|-------------------------------------------------|
+| `NiceMock<T>`    | Suppresses warnings; uninteresting calls pass silently. | `NiceMock<MockFoo> mock;`                        |
+| `NaggyMock<T>`   | Prints warnings on uninteresting calls (default). | `NaggyMock<MockFoo> mock;`                       |
+| `StrictMock<T>`  | Treats uninteresting calls as test failures.      | `StrictMock<MockFoo> mock;`                      |
+
+### Using `NiceMock` and `StrictMock`
+
+```cpp
+using ::testing::NiceMock;
+using ::testing::StrictMock;
+
+NiceMock<MockFoo> nice_mock;
+StrictMock<MockFoo> strict_mock;
+
+EXPECT_CALL(nice_mock, DoThis());
+EXPECT_CALL(strict_mock, DoThat());
+```
+
+- Both inherit all constructors of the mock class.
+- They only affect mock methods declared with `MOCK_METHOD` directly in the mock class.
+- Strict mocks will fail the test if an unexpected uninteresting call occurs.
+
+### When to Use Each
+
+- Use NiceMock when you want to focus on expected calls and ignore noisy uninteresting calls.
+- Use StrictMock for rigorous testing when you want to guarantee no unexpected calls are made.
+
+---
+
+## Managing Call Expectations with `EXPECT_CALL` and `ON_CALL`
+
+### `EXPECT_CALL`
+
+`EXPECT_CALL(mock_object, method(matchers...))` declares an expectation that the mock method will be called with arguments matching the specified matchers.
+
+```cpp
+EXPECT_CALL(my_mock, GetSize()).Times(3).WillRepeatedly(Return(42));
+EXPECT_CALL(my_mock, SetPosition(_, _)).WillOnce(Return(true));
+```
+
+#### Clause Order and Usage
+
+The following chainable clauses must be used in this order if present:
+
+```
+EXPECT_CALL(...)
+  .With(matcher)?        // At most once
+  .Times(cardinality)?   // At most once
+  .InSequence(seq...)*   // Zero or more
+  .After(expectations...)* // Zero or more
+  .WillOnce(action)*     // Zero or more
+  .WillRepeatedly(action)? // At most once
+  .RetiresOnSaturation()?   // At most once
+```
+
+- `With` restricts matches to combined argument tuple conditions.
+- `Times` specifies how many times the call is expected.
+- `InSequence` enforces call order within sequences.
+- `After` sets call ordering dependencies between expectations.
+- `WillOnce` specifies behavior for individual calls.
+- `WillRepeatedly` specifies behavior for calls after all `WillOnce` actions.
+- `RetiresOnSaturation` makes the expectation inactive after the upper bound is reached.
+
+#### Example: Setting Expectations with Behavior
+
+```cpp
+using ::testing::Return;
+
+EXPECT_CALL(mock, GetValue(5))
+    .Times(2)
+    .WillOnce(Return(10))
+    .WillOnce(Return(20));
+```
+
+### `ON_CALL`
+
+`ON_CALL(mock_object, method(matchers...))` sets the default behavior for calls matching *matchers* but does *not* impose an expectation that the call must happen.
+
+```cpp
+ON_CALL(mock, GetValue(_))
+    .WillByDefault(Return(42));
+```
+
+- `With` clause can be used at most once before `WillByDefault`.
+- `WillByDefault` specifies the default action and is mandatory.
+
+### When to Use `EXPECT_CALL` vs `ON_CALL`
+
+- Use `EXPECT_CALL` when you want to verify that a call occurs.
+- Use `ON_CALL` to define behavior for all calls without adding expectations.
+
+### Matching Arguments
+
+- Use matchers like `_` (anything), `Eq`, or complex matchers from the Matchers Reference.
+- To match multiple arguments as a tuple, use `.With()` with multi-argument matchers.
+
+### Example: Advanced Expectations
+
+```cpp
+EXPECT_CALL(my_mock, ProcessData(AllOf(HasSubstr("foo"), EndsWith("bar"))))
+    .Times(AtLeast(1)).WillRepeatedly(Return(true));
+
+Sequence s;
+EXPECT_CALL(my_mock, Initialize()).InSequence(s);
+EXPECT_CALL(my_mock, Execute()).InSequence(s);
+```
+
+---
+
+## Verifying and Managing Mock Interaction History
+
+GoogleMock automatically verifies that all expectations are satisfied when a mock object is destructed. Sometimes, you may want to verify earlier or reset expectations.
+
+### Verifying Expectations
+
+```cpp
+using ::testing::Mock;
+
+MockFoo mock;
+EXPECT_CALL(mock, DoSomething());
+// ... run code ...
+bool success = Mock::VerifyAndClearExpectations(&mock);
+ASSERT_TRUE(success);  // Test will fail if expectations were unmet
+```
+
+- `VerifyAndClearExpectations()` verifies and clears *only* expectations.
+- `VerifyAndClear()` verifies and clears **both** expectations and default actions.
+
+### Allowing Mock Object Leaks
+
+When you intentionally leak a mock object that won’t be destroyed before test completion:
+
+```cpp
+Mock::AllowLeak(&mock_obj);
+```
+
+Prevents GoogleMock from reporting leaked mock objects as failures.
+
+### Best Practices
+
+- Do not set new expectations after verification.
+- Use `AllowLeak` sparingly and only when necessary (e.g., long-lived mocks).
+
+---
+
+## Practical Tips & Common Pitfalls
+
+### Order of `EXPECT_CALL`
+
+Expectations are matched in reverse order, so more specific expectations should come after more general ones.
+
+### Matching Overloaded Methods
+
+Use `Const()` wrapper for const overloads or cast matchers to help disambiguate.
+
+### Retiring Expectations
+
+Use `.RetiresOnSaturation()` when an expectation should become inactive after its upper bound is reached to avoid upper-bound violations.
+
+### Using Sequences
+
+Use `InSequence` for strict call order and combine with `.After()` for partial ordering.
+
+### Avoiding Spurious Warnings
+
+Use `NiceMock` for silencing uninteresting call warnings, or explicitly add catch-all expectations with `Times(AnyNumber())`.
+
+### Default Actions
+
+Methods with return types have default actions returning zero or default-constructed objects unless overridden.
+
+---
+
+## Summary of Key APIs
+
+| Macro/Class         | Purpose                                                            |
+|---------------------|--------------------------------------------------------------------|
+| `MOCK_METHOD`       | Define a mock method within a mock class                           |
+| `EXPECT_CALL`       | Set expectations asserting calls to mock methods                   |
+| `ON_CALL`           | Set default behavior for calls without expecting them              |
+| `NiceMock<T>`       | Suppresses uninteresting call warnings                             |
+| `StrictMock<T>`     | Treats uninteresting calls as test failures                        |
+| `Sequence`          | Represents a sequence of expectations to enforce call order       |
+| `InSequence`        | RAII helper to apply sequencing to expectations in scope           |
+| `Mock::VerifyAndClearExpectations` | Manually verify and clear expectations                      |
+| `Mock::AllowLeak`   | Declare a mock object leak is okay without verification            |
+
+---
+
+For more advanced and practical examples, see the [gMock Cookbook](https://google.github.io/googletest/gmock_cook_book.html) and [Mocking Reference](https://google.github.io/googletest/reference/mocking.html). To learn about writing expressive matchers and actions that customize mock behavior, consult the [Matchers Reference](https://google.github.io/googletest/reference/matchers.html) and [Actions Reference](https://google.github.io/googletest/reference/actions.html).
+
+---
+
+## Troubleshooting Tips
+
+- If you encounter warnings about uninteresting calls, consider whether you missed setting an expectation or use `NiceMock`.
+- Use `--gmock_verbose=info` to get detailed traces of mock calls and expectations to diagnose test failures.
+- Beware of sticky expectations that do not retire automatically; use `.RetiresOnSaturation()` if necessary.
+- Verify that mocked methods are virtual unless you're employing the non-virtual mocking technique.
+- If testing mock destructors, mock a `Die()` method and call it explicitly in the destructor.
+
+---
+
+## Code Example: Complete Mock Usage
+
+```cpp
+#include <gmock/gmock.h>
+using ::testing::_;
+using ::testing::Return;
+using ::testing::NiceMock;
+using ::testing::Sequence;
+
+class Foo {
+ public:
+  virtual int GetValue(int key) const = 0;
+  virtual void SetValue(int key, int value) = 0;
+  virtual ~Foo() = default;
+};
+
+class MockFoo : public Foo {
+ public:
+  MOCK_METHOD(int, GetValue, (int key), (const, override));
+  MOCK_METHOD(void, SetValue, (int key, int value), (override));
+};
+
+TEST(FooTest, ReturnsExpectedValuesInSequence) {
+  NiceMock<MockFoo> mock_foo;
+  Sequence seq;
+
+  EXPECT_CALL(mock_foo, SetValue(5, 100)).InSequence(seq);
+  EXPECT_CALL(mock_foo, GetValue(5)).InSequence(seq).WillOnce(Return(100));
+
+  mock_foo.SetValue(5, 100);
+  int val = mock_foo.GetValue(5);
+  EXPECT_EQ(val, 100);
+}
+```
+
+This test demonstrates defining a mock class, setting expectations, using `NiceMock` to suppress uninteresting warnings, enforcing call order with `Sequence`, and specifying return behavior.
