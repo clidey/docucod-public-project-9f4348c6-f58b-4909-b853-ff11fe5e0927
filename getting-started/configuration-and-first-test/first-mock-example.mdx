@@ -1,0 +1,229 @@
+---
+title: "Your First Mock: Basics with GoogleMock"
+description: "Step through creating and using your first mock object. Learn about the structure of mock classes, expectations, and verifying behavior in your tests using GoogleMock."
+---
+
+# Your First Mock: Basics with GoogleMock
+
+Welcome to the journey of using GoogleMock! This guide walks you through creating and utilizing your first mock object, focusing on the core ideas of mock class structure, setting expectations, and verifying behavior in tests. By mastering these basics, you'll gain confidence to write robust, interaction-based unit tests using GoogleMock.
+
+---
+
+## 1. Understanding Mock Objects
+
+A **mock object** simulates the behavior of a real object in your tests. It allows you to:
+
+- Check how your code interacts with its dependencies.
+- Specify which methods are expected to be called, with what arguments, and how many times.
+- Control what those methods return or do upon being called.
+
+Using mocks, your tests become faster and more focused by avoiding real implementations and allowing fine-grained verification.
+
+---
+
+## 2. Defining a Mock Class
+
+To use GoogleMock, start by defining a mock class for the interface or abstract class you want to mock.
+
+### Step-by-Step:
+
+1. **Include the GoogleMock header:**
+
+```cpp
+#include <gmock/gmock.h>
+```
+
+2. **Derive your mock class from the interface/abstract class:**
+
+Assuming you have an interface similar to:
+
+```cpp
+class Turtle {
+ public:
+  virtual ~Turtle() {}
+  virtual void PenUp() = 0;
+  virtual void PenDown() = 0;
+  virtual void Forward(int distance) = 0;
+  virtual int GetX() const = 0;
+};
+```
+
+Define the mock class:
+
+```cpp
+class MockTurtle : public Turtle {
+ public:
+  MOCK_METHOD(void, PenUp, (), (override));
+  MOCK_METHOD(void, PenDown, (), (override));
+  MOCK_METHOD(void, Forward, (int distance), (override));
+  MOCK_METHOD(int, GetX, (), (const, override));
+};
+```
+
+> **Tip:** Place the mock class definition in your test source file (e.g., `_test.cc`) if you own the interface. If it belongs to another team, consider placing it in a dedicated testing utility header under their ownership.
+
+---
+
+## 3. Creating and Using a Mock Object in a Test
+
+Once your mock class is defined, follow these steps in your test:
+
+### A. Import Required Namespaces
+
+```cpp
+using ::testing::AtLeast;    // Imports common GoogleMock utilities
+using ::testing::_;          // Wildcard matcher
+using ::testing::Return;     // Return action
+```
+
+### B. Instantiate the Mock Object
+
+```cpp
+MockTurtle turtle;
+```
+
+### C. Set Expectations on Mock Methods
+
+Expectations specify what calls are anticipated during the test.
+
+```cpp
+EXPECT_CALL(turtle, PenDown())
+    .Times(AtLeast(1));
+EXPECT_CALL(turtle, Forward(100))
+    .Times(1);
+EXPECT_CALL(turtle, GetX())
+    .WillRepeatedly(Return(42));
+```
+
+- `.Times(AtLeast(1))` means `PenDown()` should be called at least once.
+- `.WillRepeatedly(Return(42))` mocks `GetX()` to always return 42.
+
+### D. Exercise the Code Under Test
+
+Use the mock object as if it were the real object:
+
+```cpp
+painter.DrawCircle(&turtle, 0, 0, 10);
+```
+
+This code exercises the mock, triggering method calls.
+
+### E. Automatic Verification
+
+When the mock object goes out of scope, GoogleMock automatically verifies that all expectations were met. Failures will point to which expectation was violated.
+
+---
+
+## 4. A Complete Example
+
+```cpp
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+// Interface
+class Turtle {
+ public:
+  virtual ~Turtle() {}
+  virtual void PenUp() = 0;
+  virtual void PenDown() = 0;
+  virtual void Forward(int distance) = 0;
+  virtual int GetX() const = 0;
+};
+
+// Mock class
+class MockTurtle : public Turtle {
+ public:
+  MOCK_METHOD(void, PenUp, (), (override));
+  MOCK_METHOD(void, PenDown, (), (override));
+  MOCK_METHOD(void, Forward, (int distance), (override));
+  MOCK_METHOD(int, GetX, (), (const, override));
+};
+
+// Code under test
+class Painter {
+ public:
+  explicit Painter(Turtle* turtle) : turtle_(turtle) {}
+  bool DrawCircle(int x, int y, int radius) {
+    turtle_->PenDown();
+    turtle_->Forward(radius);
+    return turtle_->GetX() == x + radius;
+  }
+
+ private:
+  Turtle* turtle_;
+};
+
+using ::testing::AtLeast;
+using ::testing::Return;
+
+TEST(PainterTest, DrawsCircleCorrectly) {
+  MockTurtle turtle;
+
+  EXPECT_CALL(turtle, PenDown())
+      .Times(AtLeast(1));
+  EXPECT_CALL(turtle, Forward(10))
+      .Times(1);
+  EXPECT_CALL(turtle, GetX())
+      .WillRepeatedly(Return(10));
+
+  Painter painter(&turtle);
+  EXPECT_TRUE(painter.DrawCircle(0, 0, 10));
+}
+```
+
+---
+
+## 5. Best Practices and Tips
+
+- **Set expectations before exercising the mock.** If expectations are set afterward, the behavior is undefined.
+- **Use Matchers wisely.** For flexibility, if argument values do not matter, use wildcard matcher `_`.
+- **Avoid over-specification:** Specify only necessary calls and arguments to keep tests maintainable.
+- **Use `NiceMock` to suppress warnings on uninteresting calls** if you have many mock methods, but don’t want verbose output.
+- **Use `StrictMock` to treat unexpected calls as test failures**, improving test strictness.
+
+---
+
+## 6. Troubleshooting
+
+### Common Issues
+
+| Problem                                    | Solution                                                        |
+|--------------------------------------------|----------------------------------------------------------------|
+| Mocked method calls real implementation    | Ensure the base class methods are `virtual`. Only virtual methods can be mocked.
+|
+| Warning "Uninteresting mock function call" | Use `NiceMock` wrapper or set explicit catch-all expectations with `EXPECT_CALL(...).Times(AnyNumber())`.
+|
+| Test fails with "Actual function call count doesn't match expectation" | Check call count and arguments; adjust `.Times()` or arguments accordingly.
+|
+| Compilation errors with const or overloaded methods | Use proper `MOCK_METHOD` syntax and qualifiers `(const, override)`; disambiguate overloaded methods using `Const()` if needed.
+
+### Verification
+
+If expectations need manual verification before mock objects are destroyed (e.g., if they are leaked), use:
+
+```cpp
+::testing::Mock::VerifyAndClearExpectations(&mock_object);
+```
+
+---
+
+## 7. Next Steps
+
+Now that you've defined a mock class and used it in a simple test, consider exploring:
+
+- [Matchers and Assertions](../api-reference/matchers-actions/core-matchers) — to write more expressive tests.
+- [Mock Behavior and Expectations](../guides/core-workflows/mock-behavior-expectations) — for advanced usage of setting expectations and sequencing.
+- [GoogleTest Primer: Essential Features](../guides/getting-started/primer-essential-features) — to strengthen your test-writing skills.
+
+You’re now on track to use GoogleMock confidently in your testing workflow!
+
+---
+
+## References
+
+- [gMock for Dummies](https://google.github.io/googletest/gmock_for_dummies.html)
+- [Mocking Cheat Sheet](https://google.github.io/googletest/gmock_cheat_sheet.html)
+- [Mocking Reference](../docs/reference/mocking.md)
+- [Project Setup & Integration](../getting-started/configuration-and-first-test/project-setup.md)
+
+<Source url="https://github.com/google/googletest" branch="main" paths={[{"path": "docs/gmock_for_dummies.md"},{"path": "docs/gmock_cheat_sheet.md"},{"path": "docs/reference/mocking.md"}]} />
