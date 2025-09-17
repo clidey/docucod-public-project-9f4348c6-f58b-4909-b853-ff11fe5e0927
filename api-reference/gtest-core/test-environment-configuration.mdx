@@ -1,0 +1,363 @@
+---
+title: "Test Environment, Main, and Run Options"
+description: "Describes APIs for custom test environments, fixtures, main() setup, and runtime configuration flags. Helps users manage initialization/teardown, resource lifecycles, and integration with CI tools."
+---
+
+# Test Environment, Main, and Run Options
+
+This documentation page describes the APIs and runtime configuration options in GoogleTest for customizing the test environment, managing test fixture lifecycles, implementing your own `main()` function, and controlling how tests are executed and reported. It focuses on mechanisms for global resource initialization and cleanup, test registration beyond macros, and command-line flags and environment variables that govern test selection, iteration, output, and failure behavior.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Global Test Environments](#global-test-environments)
+  - [Creating and Registering Environments](#creating-and-registering-environments)
+  - [Environment Lifecycle and Ordering](#environment-lifecycle-and-ordering)
+  - [Best Practices](#best-practices)
+- [Writing Your Own `main()` Function](#writing-your-own-main-function)
+  - [Initialization and Execution Flow](#initialization-and-execution-flow)
+  - [Typical `main()` Template](#typical-main-template)
+- [Runtime Configuration Flags](#runtime-configuration-flags)
+  - [Test Selection and Filtering](#test-selection-and-filtering)
+  - [Execution Control](#execution-control)
+  - [Output and Reporting Configuration](#output-and-reporting-configuration)
+  - [Assertion and Failure Behavior](#assertion-and-failure-behavior)
+- [Programmatic Test Registration](#programmatic-test-registration)
+- [Test Event Listeners and Event Flow](#test-event-listeners-and-event-flow)
+- [Troubleshooting and Common Pitfalls](#troubleshooting-and-common-pitfalls)
+
+---
+
+## Overview
+
+GoogleTest provides flexible APIs to manage the setup and teardown of test infrastructure at multiple levels: global (test program), per test suite, and per individual test. This page details the interfaces and patterns for defining **test environments** to share expensive resources globally, customizing test fixture lifecycles, controlling the *entry point* of your test binary, and tailoring runtime execution through command-line flags and environment variables. Additionally, it covers advanced topics like programmatic dynamic test registration and the test event listener model.
+
+---
+
+## Global Test Environments
+
+### Creating and Registering Environments
+
+GoogleTest allows you to define test environments representing global resources or setup/teardown code that must be performed once per test program execution. To do this:
+
+1. Subclass `::testing::Environment`.
+2. Override its virtual methods:
+   - `void SetUp()` — called before any tests run.
+   - `void TearDown()` — called after all tests finish (even if test code was skipped due to failure).
+
+```cpp
+class MyEnvironment : public ::testing::Environment {
+public:
+  void SetUp() override {
+    // Global resource initialization
+  }
+
+  void TearDown() override {
+    // Global resource cleanup
+  }
+};
+```
+
+3. Register the environment **before** calling `RUN_ALL_TESTS()` using:
+
+```cpp
+::testing::AddGlobalTestEnvironment(new MyEnvironment);
+```
+
+GoogleTest takes ownership of the provided object and will manage its lifetime.
+
+---
+
+### Environment Lifecycle and Ordering
+
+- `SetUp()` will be called once per registered environment sequentially in the order environments were added.
+- The registered environments' `TearDown()` methods are called in the *reverse* order of registration, guaranteeing well-ordered cleanup.
+- If the `--gtest_repeat` flag is set to repeat tests multiple times, the environment setup and teardown can be controlled via `--gtest_recreate_environments_when_repeating`:
+  - If true (default), environments will be recreated (setup/teardown per iteration).
+  - If false, environments are setup only once before first iteration, and torn down only after last iteration.
+- Fatal failures or calls to `GTEST_SKIP()` in `SetUp()` will skip running tests but `TearDown()` will still run.
+
+---
+
+### Best Practices
+
+- Avoid throwing exceptions from `SetUp()` or `TearDown()`; instead, use GoogleTest assertions.
+- If you have dependencies between environments, register them in dependent order.
+- Because `TearDown()` runs even if tests were skipped, avoid complex branching logic there.
+- Avoid relying on side effects of test order as test suite execution order is undefined.
+
+---
+
+## Writing Your Own `main()` Function
+
+Users can either link against GoogleTest's default main implementation or write a custom `main()` to perform custom initialization or integrate with other frameworks.
+
+### Initialization and Execution Flow
+
+1. Invoke `::testing::InitGoogleTest(&argc, argv)` early in your `main()` to:
+   - Parse recognized GoogleTest command-line flags and remove them from `argv`.
+   - Initialize internal GoogleTest state.
+2. Optionally register custom environments or event listeners before running tests.
+3. Call `RUN_ALL_TESTS()`, which executes all registered tests and returns 0 on success or 1 on failure.
+
+### Typical `main()` Template
+
+```cpp
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+
+  // Optional: Add global environments.
+  ::testing::AddGlobalTestEnvironment(new MyEnvironment);
+
+  // Optional: Add custom event listeners.
+  auto& listeners = ::testing::UnitTest::GetInstance()->listeners();
+  listeners.Append(new MyCustomListener());
+
+  return RUN_ALL_TESTS();
+}
+```
+
+### Notes
+
+- GoogleTest supports `InitGoogleTest(int*, wchar_t**)` on Windows for Unicode `wmain`.
+- Call `InitGoogleTest()` only once; repeated calls have no effect.
+- Always return the value of `RUN_ALL_TESTS()` from your `main()` to convey success/failure to external tools.
+
+---
+
+## Runtime Configuration Flags
+
+GoogleTest provides extensive command-line flags and environment variables, mainly prefixed with `--gtest_` or environment variables starting with `GTEST_`, to control test behavior.
+
+Equivalent flags and env variables are explained here. Command-line flags override environment variables.
+
+### Test Selection and Filtering
+
+- `--gtest_list_tests` (`list_tests` flag): Lists all available tests without running them.
+
+- `--gtest_filter=<pattern>` (`filter` flag): Runs only tests whose full names match the positive patterns and do **not** match negative patterns. Patterns support globbing with `*` and `?`.
+  - Example: `--gtest_filter=FooTest.*-FooTest.Bar` runs all tests in `FooTest` except `FooTest.Bar`.
+
+- `--gtest_also_run_disabled_tests` (`also_run_disabled_tests` flag): If set, disabled tests (prefixed with `DISABLED_`) are included in the run.
+
+- Tests or test suites prefixed with `DISABLED_` are skipped by default.
+
+### Execution Control
+
+- `--gtest_repeat=N` (`repeat` flag): Runs all selected tests `N` times. Negative values run forever. Useful to detect flaky tests.
+
+- `--gtest_shuffle` (`shuffle` flag): Randomizes the order of selected tests.
+
+- `--gtest_random_seed=N` (`random_seed` flag): Specifies the seed for shuffling. Values between 1 and 99999 or 0 (uses time-based seed).
+
+- `--gtest_recreate_environments_when_repeating=true|false` (`recreate_environments_when_repeating` flag): When repeating tests, controls whether global test environments are recreated each iteration.
+
+- `--gtest_fail_fast` (`fail_fast` flag): Stops test execution immediately after the first test failure.
+
+- `--gtest_fail_if_no_test_linked` and `--gtest_fail_if_no_test_selected`: Fail the run if no tests are linked in or no tests are selected respectively.
+
+- Sharding support through environment variables:
+  - `GTEST_TOTAL_SHARDS` and `GTEST_SHARD_INDEX`: Used by external test runners to split test execution across multiple machines/processes.
+
+### Output and Reporting Configuration
+
+- `--gtest_color=yes|no|auto` (`color` flag): Controls colored terminal output.
+
+- `--gtest_brief=1` (`brief` flag): Prints only failures, suppressing success messages.
+
+- `--gtest_print_time=0|1` (`print_time` flag): Suppresses or enables printing elapsed time of tests.
+
+- `--gtest_print_utf8=0|1` (`print_utf8` flag): Controls UTF-8 output in failure messages.
+
+- `--gtest_output=[xml|json]:path` (`output` flag): Generates XML or JSON report output to the specified directory or file.
+
+- `--gtest_list_tests` generates an output list matching filter.
+
+- Streaming results to a remote server (Linux/macOS only):
+  - `--gtest_stream_result_to=host:port` (`stream_result_to` flag)
+
+### Assertion and Failure Behavior
+
+- `--gtest_break_on_failure` (`break_on_failure` flag): Makes GoogleTest raise a breakpoint on assertion failures (great for debugging).
+
+- `--gtest_throw_on_failure` (`throw_on_failure` flag): Makes failed assertions throw exceptions if exceptions are enabled.
+
+- `--gtest_catch_exceptions` (`catch_exceptions` flag): Controls if GoogleTest catches test-thrown exceptions and treats them as failures.
+
+- Stack trace depth control: `--gtest_stack_trace_depth=N` to limit frames printed on failure.
+
+- Control internal stack frames visibility: `--gtest_show_internal_stack_frames`.
+
+---
+
+## Programmatic Test Registration
+
+For advanced cases where the static `TEST` macros are not sufficient, GoogleTest supports dynamic test registration at runtime:
+
+```cpp
+template <typename Factory>
+TestInfo* RegisterTest(const char* test_suite_name, const char* test_name,
+                       const char* type_param, const char* value_param,
+                       const char* file, int line, Factory factory);
+```
+
+- `factory` is a callable or lambda returning a newly created test fixture object.
+- Requires all tests in a test suite to use the same fixture class.
+- The test suite setup and teardown (`SetUpTestSuite`/`TearDownTestSuite`) will be called automatically for that fixture.
+- Must be called before `RUN_ALL_TESTS()`.
+
+Example:
+
+```cpp
+class MyFixture : public ::testing::Test {
+ public:
+  static void SetUpTestSuite() { ... }
+  static void TearDownTestSuite() { ... }
+  void SetUp() override { ... }
+  void TearDown() override { ... }
+};
+
+class MyTest : public MyFixture {
+ public:
+  explicit MyTest(int data) : data_(data) {}
+  void TestBody() override { ... }
+
+ private:
+  int data_;
+};
+
+void RegisterMyTests(const std::vector<int>& values) {
+  for (int v : values) {
+    ::testing::RegisterTest(
+        "MyFixture", ("Test" + std::to_string(v)).c_str(), nullptr, 
+        std::to_string(v).c_str(),
+        __FILE__, __LINE__, [=]() -> MyFixture* { return new MyTest(v); });
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  RegisterMyTests(LoadValuesFromConfig());
+  return RUN_ALL_TESTS();
+}
+```
+
+---
+
+## Test Event Listeners and Event Flow
+
+GoogleTest offers an event listener API to hook into the lifecycle of test execution:
+
+- Subclass `::testing::TestEventListener` or use `EmptyTestEventListener` as a base to override only desired methods.
+- Event methods include:
+  - `OnTestProgramStart` / `OnTestProgramEnd`
+  - `OnTestIterationStart` / `OnTestIterationEnd`
+  - `OnEnvironmentsSetUpStart` / `OnEnvironmentsSetUpEnd`
+  - `OnTestSuiteStart` / `OnTestSuiteEnd`
+  - `OnTestStart` / `OnTestEnd`
+  - `OnTestPartResult` — handles assertion results, including failures and successes.
+  - `OnEnvironmentsTearDownStart` / `OnEnvironmentsTearDownEnd`
+
+Listeners receive notifications in the order they are registered for `On*Start` and in reverse order for `On*End` events, allowing framing behavior.
+
+To register a listener:
+
+```cpp
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  auto& listeners = ::testing::UnitTest::GetInstance()->listeners();
+
+  // Remove default printer if desired
+  delete listeners.Release(listeners.default_result_printer());
+
+  // Append your listener
+  listeners.Append(new MyCustomListener());
+  return RUN_ALL_TESTS();
+}
+```
+
+**Caveats:**
+
+- Do not generate failures inside `OnTestPartResult()`.
+- Order delegate listeners that observe results before listeners that generate failures.
+
+---
+
+## Troubleshooting and Common Pitfalls
+
+- **Forgetting to call `InitGoogleTest()` before `RUN_ALL_TESTS()`** leads to unprocessed flags and undefined behavior.
+- **Mixing `TEST` and `TEST_F` in the same test suite with different fixtures** is not allowed and will raise errors.
+- **Skipping tests with `GTEST_SKIP()`** can be done gracefully in `SetUp()` methods of fixtures or environments.
+- **Fatal assertions in constructors or destructors** are disallowed; use `SetUp()`/`TearDown()` instead.
+- **Uninstantiated parameterized tests** cause errors unless suppressed with `GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST`.
+- **Sharding environment variables must be consistent and valid**, otherwise the program will exit with an error.
+- **Enable `--gtest_break_on_failure` to make debugging failed assertions easier.**
+
+---
+
+## References and Further Reading
+
+- [Global Set-Up and Tear-Down](../advanced.md#global-set-up-and-tear-down)
+- [Writing the main() Function](../primer.md#writing-the-main-function)
+- [Runtime Flags](../advanced.md#running-test-programs-advanced-options)
+- [Programmatic Test Registration](../advanced.md#registering-tests-programmatically)
+- [Test Event Listeners](../advanced.md#extending-googletest-by-handling-test-events)
+
+---
+
+## Example Snippet: Custom Environment and Main
+
+```cpp
+class MyDatabaseEnvironment : public ::testing::Environment {
+ public:
+  void SetUp() override {
+    // Establish database connection
+  }
+  void TearDown() override {
+    // Disconnect database
+  }
+};
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  ::testing::AddGlobalTestEnvironment(new MyDatabaseEnvironment);
+  return RUN_ALL_TESTS();
+}
+```
+
+## Example Snippet: Filtering and Repeating Tests
+
+Run only tests matching `MyTestSuite.*` repeatedly, stopping on first failure:
+
+```bash
+./my_test_binary --gtest_filter=MyTestSuite.* --gtest_repeat=1000 --gtest_fail_fast
+```
+
+## Summary
+
+By mastering global test environments, test lifecycle customization, the GoogleTest main function pattern, and runtime configuration flags, you can precisely control test execution and resource management to seamlessly integrate GoogleTest in complex C++ projects.
+
+---
+
+<Accordion title="Test Execution Flow Diagram">
+
+```mermaid
+graph TD
+  A[Start Test Program] --> B(InitGoogleTest(argc, argv))
+  B --> C{Register Global Test Environments}
+  C --> D[Environments: SetUp() (order)]
+  D --> E{Run Tests}
+  E --> F[TestSuite: SetUpTestSuite()]
+  F --> G[Test: SetUp()]
+  G --> H[Test Body Execution]
+  H --> I[Test: TearDown()]
+  I --> J[TestSuite: TearDownTestSuite()]
+  J --> K[Environments: TearDown() (reverse order)]
+  K --> L[Generate Output & Reports]
+  L --> M[Call TestEventListeners]
+  M --> N[END]
+```
+
+</Accordion>
