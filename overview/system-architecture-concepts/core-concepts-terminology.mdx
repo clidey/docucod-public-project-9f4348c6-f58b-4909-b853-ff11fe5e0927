@@ -1,0 +1,149 @@
+---
+title: "Core Concepts & Terminology"
+description: "Demystify foundational terms in the GoogleTest ecosystem—such as test fixtures, test cases, assertions, matchers, parameterized tests, mocks, stubs, actions, and cardinalities. Align terminology with user scenarios to reduce confusion and improve onboarding."
+---
+
+# Core Concepts & Terminology
+
+Welcome to the foundational guide that demystifies the essential terms used throughout the GoogleTest ecosystem. By understanding these core concepts and aligning them with your real-world testing scenarios, you'll navigate the framework with confidence, reducing confusion and accelerating your onboarding process.
+
+---
+
+## Why Core Concepts Matter
+
+Testing frameworks like GoogleTest introduce specialized terminology that can easily overwhelm new users or even seasoned developers venturing into unfamiliar parts of the system. This page is designed to:
+
+- Define critical GoogleTest terms clearly and accessibly.
+- Relate these definitions to practical user intents and workflows.
+- Provide context that helps you understand why these constructs exist and how they fit together.
+
+Mastering this terminology is your key to unlocking the full power of GoogleTest's testing and mocking capabilities.
+
+---
+
+## Foundational Terminology Explained
+
+### 1. Test Fixture
+
+A *test fixture* is a class that defines the common objects and subroutines used by multiple tests. It provides setup and teardown methods to prepare a consistent environment for each test.
+
+- **User Intent:** Share setup and teardown code among tests.
+- **Example:** If you test a database component, your fixture class could create a test database connection for every test.
+- **Benefit:** Prevents code duplication and ensures test isolation.
+
+### 2. Test Case (Legacy) / Test Suite (Preferred)
+
+A *test suite* (formerly called *test case*) groups related tests together. Each suite contains one or many test functions that share a common fixture or concept.
+
+- **User Intent:** Organize tests logically reflecting your code structure.
+- **Example:** `MathTests` grouping all math-related tests.
+- **Benefit:** Enables running subsets of tests, readable console output, and summary statistics.
+
+### 3. Assertion
+
+*Assertions* check for conditions during tests, such as equality or truth values. They denote success or failure points within tests.
+
+- **Types:** `EXPECT_` (non-fatal) and `ASSERT_` (fatal, aborts current test).
+- **Matchers:** Provide expressive ways to assert complex conditions.
+- **Example:** `EXPECT_EQ(value, expected_value)` validates that two values are equal.
+
+### 4. Matcher
+
+A *matcher* expresses a condition that values can satisfy. It is used with `EXPECT_THAT` and enhances readability and expressiveness.
+
+- **User Intent:** Write nuanced assertions with clear failure messages.
+- **Example:** `EXPECT_THAT(str, HasSubstr("needle"))` asserts that `str` contains 'needle'.
+
+### 5. Parameterized Tests
+
+These tests run the same logic multiple times with different input values, enhancing test coverage while avoiding code repetition.
+
+- **User Intent:** Validate code correctness over a range of data inputs or scenarios.
+- **Key Components:** `TEST_P` for defining, and `INSTANTIATE_TEST_SUITE_P` for specifying parameters.
+- **Example:** Testing a function across various integer ranges.
+
+### 6. Typed Tests
+
+Typed tests run the same tests across multiple types, useful when verifying template classes or functions with different type parameters.
+
+- **User Intent:** Check type-agnostic code correctness.
+- **Key Components:** `TYPED_TEST_SUITE` to define types list, `TYPED_TEST` for individual tests.
+
+### 7. Mocks
+
+Mocks simulate the behavior of real objects, particularly in interactions or dependencies, allowing control over their behavior and validation of interactions.
+
+- **User Intent:** Decouple tests from real implementations to isolate behaviors.
+- **Example:** Mock a network connection to simulate server responses.
+
+### 8. Stubs
+
+A *stub* is a simplified implementation returning fixed responses, used in place of real objects during testing.
+
+- **Distinction:** Generally less sophisticated than mocks—focus on providing canned data.
+
+### 9. Actions
+
+Actions specify what a mock method should do when called, such as returning a value or invoking a custom function.
+
+- **User Intent:** Customize mock behavior flexibly.
+- **Example:** Return different sequences of values or throw exceptions.
+
+### 10. Cardinalities
+
+Cardinalities express how many times a mock method is expected to be called.
+
+- **User Intent:** Validate correct interaction frequency.
+- **Example:** `EXPECT_CALL(mock, Func()).Times(Exactly(3))` expects exactly three calls.
+
+---
+
+## How These Concepts Fit Into Your Workflow
+
+Imagine you are testing a component responsible for processing user requests:
+
+1. **Organize tests into test suites** based on the component or logical feature.
+2. **Use test fixtures** to prepare common data, such as constructing mock dependencies.
+3. **Write assertions** to verify outcomes within each test.
+4. **Create mocks and stubs** to simulate external systems like databases or network responses.
+5. **Leverage parameterized tests** to cover various input scenarios without duplication.
+6. **Employ typed tests** if the component operates across multiple data types.
+7. **Specify actions and cardinalities** on mocks to rigorously validate interactions.
+
+By understanding and applying this terminology, you will be empowered to build robust, maintainable, and readable tests with GoogleTest.
+
+---
+
+## Practical Tips & Best Practices
+
+- **Avoid confusing terminology:** Use 'test suite' instead of 'test case' where possible to align with current standards.
+- **Consistent naming:** Name test suites and tests without underscores to avoid internal clashes.
+- **Define fixtures thoughtfully:** Extract common setup logic to fixtures to reduce duplication and prevent side effects.
+- **Harness parameterized tests:** Use them to systematically test with diverse input effectively.
+- **Employ matchers for clarity:** They produce better failure messages and improve test expressiveness.
+- **Validate mock interactions:** Always define cardinalities to detect unexpected call counts.
+
+---
+
+## Troubleshooting Common Confusions
+
+- **Mixing TEST and TEST_F in the same test suite:** Causes failures because all tests in a suite must use the same fixture.
+- **Uninstantiated parameterized tests:** If a `TEST_P` is defined without `INSTANTIATE_TEST_SUITE_P`, tests won’t run and an error is reported.
+- **Disabled tests:** Tests prefixed with `DISABLED_` are skipped unless run explicitly with flags.
+
+---
+
+## Next Steps
+
+- Explore the [GoogleTest Primer](https://github.com/google/googletest/blob/main/docs/primer.md) to understand test writing basics and key concepts.
+- Dive into [Parameterized and Typed Tests](https://github.com/google/googletest/blob/main/docs/advanced.md#value-parameterized-tests) for detailed guidance.
+- Learn about [Advanced Assertions and Custom Matchers](https://github.com/google/googletest/blob/main/guides/core-workflows/advanced-assertions-matchers.md) to write more expressive tests.
+- Review [Mocking and Expectations](https://github.com/google/googletest/blob/main/guides/core-workflows/mock-behavior-expectations.md) to leverage mocks and stubs effectively.
+
+---
+
+For detailed API references and code examples, refer to the [GoogleTest API Reference](https://github.com/google/googletest/blob/main/docs/reference/testing.md).
+
+---
+
+> This page aligns terminology with user scenarios, bridging the gap between conceptual understanding and practical application in your GoogleTest journey.
