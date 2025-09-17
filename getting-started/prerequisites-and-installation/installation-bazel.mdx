@@ -1,0 +1,183 @@
+---
+title: "Installing with Bazel"
+description: "Follow the process to add GoogleTest and GoogleMock to your Bazel-based project. Learn to add dependencies, configure BUILD files, and verify the setup using Bazel’s tooling."
+---
+
+# Installing with Bazel
+
+This guide walks you through integrating GoogleTest and GoogleMock into your Bazel-based C++ project. It covers how to add necessary dependencies, configure your Bazel workspace and BUILD files, build your test binaries, and verify your setup using Bazel’s tools.
+
+---
+
+## 1. Prerequisites & System Requirements
+
+Before beginning, ensure you meet the following requirements:
+
+- **Operating System**: Linux, macOS, or Windows supported.
+- **Compiler**: Compatible C++ compiler supporting at least C++17.
+- **Bazel**: Version 7.0 or higher installed. Visit [Bazel Installation Guide](https://bazel.build/install) if needed.
+
+
+<Tip>
+All Bazel commands and file paths shown here work on both Unix shells and Windows command line.
+</Tip>
+
+## 2. Set Up Your Bazel Workspace
+
+A Bazel workspace organizes your source code and build dependencies. Start by creating a new directory:
+
+```bash
+$ mkdir my_workspace && cd my_workspace
+```
+
+### Create MODULE.bazel
+
+Define your module dependencies in the root workspace folder by creating a file named `MODULE.bazel` with the following content:
+
+```python
+# MODULE.bazel
+
+# Specify GoogleTest module from Bazel Central Registry.
+bazel_dep(name = "googletest", version = "1.17.0")
+```
+
+This configuration lets Bazel fetch and manage GoogleTest and GoogleMock dependencies automatically.
+
+## 3. Create Your Test Source File
+
+Within `my_workspace`, create a sample test file `hello_test.cc` as a quick verification:
+
+```cpp
+#include <gtest/gtest.h>
+
+// Basic example test case.
+TEST(HelloTest, BasicAssertions) {
+  EXPECT_STRNE("hello", "world");
+  EXPECT_EQ(7 * 6, 42);
+}
+```
+
+This code demonstrates fundamental usage of GoogleTest assertions.
+
+## 4. Configure Bazel BUILD File
+
+Create a `BUILD` file in the same directory with the following contents. This declares your test binary and links the necessary GoogleTest libraries:
+
+```python
+cc_test(
+    name = "hello_test",
+    size = "small",
+    srcs = ["hello_test.cc"],
+    deps = [
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+```
+
+### Explanation
+
+- `cc_test` registers a C++ test target.
+- `deps` list the GoogleTest libraries to link against.
+
+## 5. Build and Run Your Test
+
+From the workspace directory, run the following command to compile and execute the test:
+
+```bash
+$ bazel test --cxxopt=-std=c++17 --test_output=all //:hello_test
+```
+
+This instructs Bazel to:
+
+- Use C++17 standard explicitly.
+- Run all tests and show their output.
+
+### Expected Output Snippet
+
+```text
+Running main() from gmock_main.cc
+[==========] Running 1 test from 1 test suite.
+[ RUN      ] HelloTest.BasicAssertions
+[       OK ] HelloTest.BasicAssertions (0 ms)
+[  PASSED  ] 1 test.
+```
+
+A "PASSED" status confirms your GoogleTest & Bazel environment is correctly configured.
+
+## 6. Practical Tips & Best Practices
+
+- **Compiler Options**: Adjust `--cxxopt` depending on your compiler:
+  - Use `--cxxopt=-std=c++17` for GCC/Clang.
+  - Use `--cxxopt=/std:c++17` for MSVC.
+
+- **WORKSPACE vs MODULE.bazel**: When Bazel Bzlmod is enabled, `MODULE.bazel` governs dependencies, ignoring `WORKSPACE` for external dependencies.
+
+- **Bazel Vendor Mode**: For environments needing reduced external dependency downloads (such as CI), use Bazel vendor flags when possible (see advanced CI scripts).
+
+- **Dependency Versioning**: Always specify stable GoogleTest versions in `MODULE.bazel`.
+
+## 7. Troubleshooting Common Issues
+
+<AccordionGroup title="Common Bazel Setup Problems"> 
+<Accordion title="Bazel Not Found or Older Version">
+Ensure Bazel is installed and your PATH variable includes its location. Bazel version 7.0+ is required.
+
+Check with:
+
+```bash
+bazel version
+```
+
+If outdated, follow the [Bazel Installation Guide](https://bazel.build/install) to upgrade.
+</Accordion>
+<Accordion title="C++17 Compiler Support Missing">
+Confirm your compiler supports C++17. You may encounter errors if the compiler is too old.
+
+On many Linux systems, `gcc --version` or `clang --version` will show this.
+
+Upgrade compiler or adjust build options as needed.
+</Accordion>
+<Accordion title="BUILD File Misconfiguration">
+If `bazel test` fails due to missing dependencies:
+
+- Verify `deps` in your `BUILD` file point to `@googletest//:gtest` and `@googletest//:gtest_main` correctly.
+- Confirm `MODULE.bazel` is present with the correct `bazel_dep` line.
+</Accordion>
+<Accordion title="Test Exec Fails to Run or Link">
+If linking errors occur, ensure C++17 flags are properly passed.
+
+Try explicitly adding `--cxxopt=-std=c++17` for GCC/Clang or `--cxxopt=/std:c++17` for MSVC.
+
+Check any platform-specific build instructions relevant to your OS.
+</Accordion>
+</AccordionGroup>
+
+## 8. Next Steps
+
+- Explore writing your own test suites as described in [Your First Test: Hello, GoogleTest!](../configuration-and-first-test/hello-world-test).
+- Learn to integrate GoogleMock for mocking features: [Your First Mock: Basics with GoogleMock](../configuration-and-first-test/first-mock-example).
+- Review [Quickstart: Building with Bazel](../guides/getting-started/quickstart-writing-tests) for a hands-on tutorial.
+- For deep understanding of GoogleTest concepts and APIs, see [Core Concepts & Terminology](../../overview/system-architecture-concepts/core-concepts-terminology).
+
+---
+
+## References
+
+- [Bazel Official Documentation](https://bazel.build/)
+- [GoogleTest on Bazel Central Registry](https://registry.bazel.build/modules/googletest)
+- [GoogleTest CMake Installation Guide](../prerequisites-and-installation/installation-cmake)
+- [Supported Platforms & Build Tools](../../overview/integration-and-ecosystem/supported-platforms-build-tools)
+
+
+<Check>
+Confirm your Bazel workspace directory contains these three files for this setup:
+
+- `MODULE.bazel` for module dependency declarations.
+- `BUILD` file with your test targets.
+- Your C++ test source files (e.g., `hello_test.cc`).
+
+If all are correctly configured, Bazel commands will build and run tests seamlessly.
+</Check>
+
+---
