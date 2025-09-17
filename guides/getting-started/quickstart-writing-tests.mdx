@@ -1,0 +1,216 @@
+---
+title: "Quickstart: Writing Your First Unit Test"
+description: "Walks users through creating and executing their very first unit test using GoogleTest. Covers setting up the build environment and running tests from the command line, focusing on reducing barriers for new adopters."
+---
+
+# Quickstart: Writing Your First Unit Test
+
+## Overview
+
+This guide walks you through creating and executing your very first unit test using GoogleTest. It covers setting up a simple build environment, writing a test in C++, compiling the test with CMake, and running the test from the command line. It is designed specifically to reduce barriers for new adopters and get you successfully testing your code quickly.
+
+### Prerequisites
+- A C++17 compatible compiler installed on your system
+- CMake installed for project build configuration
+- Basic knowledge of command line usage and running build commands
+- GoogleTest installed or available as part of your project (see [Installing with CMake](/getting-started/prerequisites-and-installation/installation-cmake))
+
+### Expected Outcome
+By the end of this guide, you will have written, built, and run your first GoogleTest unit test executable. You will understand how test files are structured, how to use basic assertions, and how tests are run and reported.
+
+### Time Estimate
+About 15-30 minutes, depending on familiarity with C++ and build tools.
+
+### Difficulty Level
+Beginner
+
+---
+
+## Step-by-Step Instructions
+
+### Step 1: Create a Test Source File
+
+1. In your project directory create a new source file named `hello_test.cpp`.
+2. Add the following minimal GoogleTest example:
+
+```cpp
+#include <gtest/gtest.h>
+
+// Define a simple test.
+TEST(HelloTest, BasicAssertions) {
+  // Expect equality.
+  EXPECT_EQ(1 + 1, 2);
+  // Expect string equality.
+  EXPECT_STREQ("hello", "hello");
+}
+```
+
+This defines a test suite `HelloTest` with one test case `BasicAssertions`.
+
+### Expected Results
+You have a valid test source file containing a test that will always pass.
+
+---
+
+### Step 2: Set Up a CMake Build
+
+If you do not have build scripts, create a `CMakeLists.txt` in the same directory to define building your test:
+
+```cmake
+cmake_minimum_required(VERSION 3.14)
+project(HelloGoogleTest)
+
+# Enable testing
+enable_testing()
+
+# Add GoogleTest: adjust GTest_DIR to your system or install location
+find_package(GTest REQUIRED)
+include_directories(${GTEST_INCLUDE_DIRS})
+
+# Add test executable
+add_executable(hello_test hello_test.cpp)
+
+# Link GoogleTest libraries
+target_link_libraries(hello_test ${GTEST_LIBRARIES} pthread)
+
+# Register the test with CTest
+add_test(NAME HelloTest COMMAND hello_test)
+```
+
+Modify paths accordingly to your environment if needed.
+
+### Expected Results
+You have a minimal CMake build file that compiles your test file and links GoogleTest.
+
+---
+
+### Step 3: Build the Test Executable
+
+1. Create and navigate to a build directory:
+
+```bash
+mkdir build
+cd build
+```
+
+2. Run CMake to configure the build:
+
+```bash
+cmake ..
+```
+
+3. Build the test binary:
+
+```bash
+make
+```
+
+### Expected Results
+The test executable `hello_test` is built successfully with no errors.
+
+---
+
+### Step 4: Run Your Test
+
+1. Execute the built test binary:
+
+```bash
+./hello_test
+```
+
+2. You should see test output similar to:
+
+```
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from HelloTest
+[ RUN      ] HelloTest.BasicAssertions
+[       OK ] HelloTest.BasicAssertions (0 ms)
+[----------] 1 test from HelloTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+```
+
+### Understanding Test Output
+- `[ RUN      ]` indicates a test starting
+- `[       OK ]` indicates test passed
+- `[  PASSED  ]` final summary shows all tests succeeded
+
+---
+
+## Practical Tips & Best Practices
+
+- Use `EXPECT_...` assertions if you want the test to continue after failure, `ASSERT_...` if failure should halt the current test.
+- Group related tests into test suites by reusing the first argument of the `TEST()` macro.
+- Avoid underscores `_` in test or suite names; stick to standard C++ identifiers.
+- Use `TEST_F()` for tests that require shared setup/teardown or fixtures.
+- Run tests with `--gtest_filter` to selectively run tests.
+
+
+## Troubleshooting Common Issues
+
+### Build Failures
+- Ensure you have GoogleTest installed and CMake can locate it.
+- Verify your compiler supports C++17.
+- Check if the required pthread library is linked on Unix-like systems.
+
+### Test Does Not Run or No Output
+- Confirm `RUN_ALL_TESTS()` is called in your main function if you have one.
+- If using `gtest_main`, you don't need a `main()` function; check if linked properly.
+
+### Test Fails Unexpectedly
+- Review your assertions carefully.
+- Use verbose test output by running `./hello_test --gtest_verbose=info` for detailed matching logs.
+
+## Next Steps & Related Content
+
+- After mastering writing and running basic tests, explore [GoogleTest Primer: Essential Features](/guides/getting-started/primer-essential-features) for deeper understanding of assertions, fixtures, and test organization.
+- Start integrating GoogleMock with [Getting Started with GoogleMock](/guides/getting-started/mocking-basics) once comfortable with unit tests.
+- Consult [Project Setup & Integration](/getting-started/configuration-and-first-test/project-setup) for advanced build and integration scenarios.
+- Review [Common Use Cases & Target Audience](/overview/product-intro-core-features/primary-use-cases) to see typical GoogleTest workflows.
+
+---
+
+For comprehensive API references, troubleshoot guides, and advanced tutorials, see the main documentation navigation or GoogleTest's GitHub page: https://github.com/google/googletest
+
+---
+
+_This guide is part of the GoogleTest documentation's Getting Started series._
+
+---
+
+## Example: Full hello_test.cpp
+
+```cpp
+#include <gtest/gtest.h>
+
+TEST(HelloTest, BasicAssertions) {
+  EXPECT_EQ(1 + 1, 2);
+  EXPECT_STREQ("hello", "hello");
+}
+```
+
+## Example: Running tests selectively
+
+Run only tests in `HelloTest` suite:
+
+```bash
+./hello_test --gtest_filter=HelloTest.*
+```
+
+Run a single test case:
+
+```bash
+./hello_test --gtest_filter=HelloTest.BasicAssertions
+```
+
+---
+
+## Summary
+
+This quickstart is your first practical step into writing and running unit tests with GoogleTest. It is tailored to beginners and gets you up and testing code within half an hour by focusing on test creation, build configuration with CMake, and command line execution. Once familiar, you can explore more complex use cases and mocking support.
+
+
+
