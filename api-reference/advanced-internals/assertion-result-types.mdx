@@ -1,0 +1,194 @@
+---
+title: "Assertion Result Types & Custom Extensions"
+description: "Explains the underlying assertion result and message APIs, including the AssertionResult class, streaming mechanisms, and how to write custom assertion macros or extend message formatting."
+---
+
+# Assertion Result Types & Custom Extensions
+
+This page delves into the core mechanisms GoogleTest uses to represent and extend assertion results. It introduces the `AssertionResult` class, the foundation of expressive assertions in GoogleTest, and details how users can create custom assertion macros or enrich failure messages through streaming. Understanding these APIs empowers users to build clearer, more informative tests tailored to their domain needs.
+
+---
+
+## Understanding AssertionResult
+
+At the heart of GoogleTest's assertion system lies the `AssertionResult` class. It encapsulates whether an assertion succeeded or failed and, crucially, carries detailed failure messages that illuminate the cause when tests don't pass.
+
+### What is `AssertionResult`?
+
+- **Purpose:** Represents the outcome of an assertion; success or failure.
+- **Messages:** Carries descriptive messages that explain failure contexts, making test reports insightful.
+- **Construction:** Use factory functions `AssertionSuccess()` and `AssertionFailure()` to instantiate success or failure instances respectively.
+
+### Why use `AssertionResult`?
+
+When a predicate function returns a simple boolean, failure messages can be opaque or missing, obscuring why a test failed. A predicate returning `AssertionResult` lets you:
+
+- Provide detailed failure messages.
+- Stream values and explanations using the streaming (`<<`) operator.
+- Support both positive and negative assertions with informative messaging.
+
+### Example Predicate using `AssertionResult`
+
+```cpp
+#include <gtest/gtest.h>
+using ::testing::AssertionResult;
+using ::testing::AssertionSuccess;
+using ::testing::AssertionFailure;
+
+// Checks if a number is even, providing detailed messages.
+AssertionResult IsEven(int n) {
+  if (n % 2 == 0)
+    return AssertionSuccess() << n << " is even";
+  else
+    return AssertionFailure() << n << " is odd";
+}
+
+TEST(NumberTest, EvenCheck) {
+  EXPECT_TRUE(IsEven(4));  // Succeeds silently.
+  EXPECT_TRUE(IsEven(3));  // Fails with message "3 is odd".
+}
+```
+
+The failure output includes the streamed message, helping you quickly identify issues.
+
+### Key Methods and Features
+
+| Method / Operator           | Description                                         |
+| -------------------------- | ------------------------------------------------- |
+| `operator bool()`           | Allows treating `AssertionResult` as a boolean    |
+| `operator!()`               | Returns negated outcome but retains the message   |
+| `message()`                | Retrieves the stored failure message as C-string  |
+| `operator<<` (streaming)   | Append custom messages to the assertion result    |
+
+---
+
+## Streaming Failure Messages
+
+GoogleTest enhances readability and debug efficiency using the streaming operator `<<` to attach user-friendly messages to assertions. Since `AssertionResult` supports streaming, users can build rich failure explanations that combine literals and variables seamlessly.
+
+### How It Works
+
+- Messages are stored internally as strings.
+- Any type streamable to `ostream` can be appended.
+- Wide strings (`wchar_t*`) are automatically converted to UTF-8.
+- Streaming manipulators like `std::endl` are supported.
+
+### Example Usage
+
+```cpp
+EXPECT_TRUE(IsEven(3)) << "The input value " << 3 << " failed the even test.";
+```
+
+This outputs a message clearly indicating what values caused the failure.
+
+---
+
+## Creating Custom Assertion Macros
+
+While GoogleTest provides numerous assertion macros, sometimes your testing needs demand custom predicates or result types. With `AssertionResult` and streaming facilities, you can craft your own assertion macros that fit your domain and communicate failures effectively.
+
+### Basic Pattern for Custom Assertions
+
+Define a predicate function returning `AssertionResult`:
+
+```cpp
+AssertionResult IsValidUsername(const std::string& name) {
+  if (name.empty()) {
+    return AssertionFailure() << "Username is empty";
+  }
+  if (name.length() < 3) {
+    return AssertionFailure() << "Username '" << name << "' is too short";
+  }
+  return AssertionSuccess();
+}
+```
+
+Use it in tests:
+
+```cpp
+EXPECT_TRUE(IsValidUsername("ok")) << "Provided username was: 'ok'";
+```
+
+### Advanced: Predicate-Formatter Assertions
+
+If default `EXPECT_TRUE` messages are insufficient—especially for complex predicates or when arguments don't support streaming—you can define predicate-formatters.
+
+#### Predicate-Formatter Signature:
+
+```cpp
+AssertionResult PredicateFormatter(const char* expr1, const char* expr2, ..., T1 val1, T2 val2, ...);
+```
+
+- `exprN`: String forms of the arguments.
+- `valN`: Actual argument values.
+- Return an `AssertionSuccess()` or `AssertionFailure()` with failure info.
+
+#### Example:
+
+```cpp
+AssertionResult AssertBetween(const char* val_expr, const char* lo_expr,
+                              const char* hi_expr, int val, int lo, int hi) {
+  if (val >= lo && val <= hi) {
+    return AssertionSuccess();
+  }
+  return AssertionFailure() << val_expr << " is not between " << lo_expr
+                            << " and " << hi_expr << ": actual value = "
+                            << val;
+}
+
+// Usage
+EXPECT_PRED_FORMAT3(AssertBetween, x, 1, 10);
+```
+
+This yields a meaningful message when the predicate fails, showing expression strings and values.
+
+---
+
+## Best Practices and Common Pitfalls
+
+- **Avoid Overhead in Predicates:** Providing verbose success messages can reduce performance if used extensively. Use them selectively.
+- **Message Clarity:** Stream human-readable, compact messages to help diagnosis.
+- **Single Evaluation:** Predicate functions must avoid multiple evaluations of arguments to prevent side effects.
+- **Use `SCOPED_TRACE` for Context:** To add more context from caller sites, use `SCOPED_TRACE` alongside custom predicates.
+
+---
+
+## Troubleshooting Common Issues
+
+- **No Failure Message:** Ensure custom predicates return `AssertionFailure()` with appropriate streaming.
+- **No Abort on Fatal Failures:** Use `ASSERT_*` for fatal failures to stop execution early.
+- **Undefined Behavior in Streaming:** Avoid streaming types that don't support `operator<<`.
+
+---
+
+## Reference Links
+
+- [`AssertionResult` class documentation](#assertionresult)
+- [Writing Custom Predicate Assertions](../advanced.md#predicate-assertions-for-better-error-messages)
+- [ASSERT_EQ, EXPECT_TRUE and other assertion macros](reference/assertions.md)
+- [SCOPED_TRACE for adding diagnostics](../advanced.md#adding-traces-to-assertions)
+- [Matchers Reference for matcher-driven assertions](reference/matchers.md)
+
+---
+
+## Summary
+This page explicates the `AssertionResult` class and its role in delivering expressive assertion outcomes within GoogleTest. It guides users through leveraging streaming operators to augment failure messages and creating custom assertion macros for tailored testing diagnostics.
+
+---
+
+## See Also
+- [Assertions Reference](reference/assertions.md)
+- [Advanced GoogleTest Topics: Predicate Assertions](../advanced.md#predicate-assertions-for-better-error-messages)
+- [Matchers Reference](reference/matchers.md)
+- [GoogleTest Primer](guides/getting-started/primer-essential-features)
+
+---
+
+<Info>
+While `EXPECT_TRUE` accepts boolean conditions, using predicate functions returning `AssertionResult` allows you to convey failure details elegantly.
+</Info>
+
+<Info>
+Use `ASSERT_*` macros to generate fatal failures that halt the current function, especially when later code depends on the assertion’s validity.
+</Info>
+
