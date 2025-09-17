@@ -1,0 +1,224 @@
+---
+title: "Advanced Assertions and Custom Matchers"
+description: "Explores the rich set of built-in assertions and matchers in GoogleTest/GoogleMock, with practical advice on asserting complex and custom conditions."
+---
+
+# Advanced Assertions and Custom Matchers
+
+Explore the rich set of built-in assertions and matchers in GoogleTest/GoogleMock, with practical advice on asserting complex and custom conditions to effectively validate your test behavior.
+
+---
+
+## Workflow Overview
+
+### What this guide helps you accomplish
+This guide focuses on helping you leverage advanced assertions and custom matchers within GoogleTest and GoogleMock. You will learn how to assert complex conditions on values, extend GoogleTest by writing your own matchers, and grasp practical usage of the rich set of built-in matchers and assertions.
+
+### Prerequisites
+- Basic familiarity with GoogleTest assertions (`EXPECT_` and `ASSERT_` macros) and GoogleMock mocking concepts.
+- Ability to write basic mock classes and simple `EXPECT_CALL` statements.
+- Understanding of C++ testing idioms and writing test cases.
+
+### Expected Outcome
+By following this guide, you will:
+- Use advanced GoogleTest assertions like `EXPECT_THAT` with powerful matchers.
+- Write custom matchers tailored to your domain, enhancing expressiveness.
+- Validate complex data structures, containers, and predicate logic cleanly.
+- Use GoogleMock matchers to impose rich argument constraints in mock expectations.
+
+### Time Estimate
+15-30 minutes to familiarize and start implementing advanced assertions and custom matchers.
+
+### Difficulty Level
+Intermediate to Advanced
+
+---
+
+## Using Advanced Assertions
+
+### The Power of `EXPECT_THAT`
+Unlike simple assertions like `EXPECT_EQ` or `EXPECT_TRUE`, `EXPECT_THAT` allows you to combine matchers with your values, producing more readable tests and richer failure messages.
+
+```cpp
+#include <gmock/gmock.h>
+using ::testing::StartsWith;
+using ::testing::AllOf;
+using ::testing::Gt;
+using ::testing::Lt;
+
+EXPECT_THAT(value1, StartsWith("Hello"));
+EXPECT_THAT(value2, AllOf(Gt(5), Lt(10)));
+```
+
+If `value2` does not satisfy both `>5` and `<10`, the failure message will clearly indicate which condition failed.
+
+### Matchers Reference
+GoogleTest includes built-in matchers for:
+- Arithmetic comparisons (`Gt()`, `Ge()`, `Lt()`, etc.)
+- String patterns (`StartsWith()`, `HasSubstr()`, `EndsWith()`, `StrEq()`, etc.)
+- Container contents (`ElementsAre()`, `UnorderedElementsAre()`, `Contains()`, `Each()`)
+- Pointers (`IsNull()`, `NotNull()`, `Pointee()`)
+- Verification of members (`Field()`, `Property()`)
+- Tuples and pairs (`Pair()`, `Args<>`, `AllOf()`, `AnyOf()`)
+
+See the [Matchers Reference](https://google.github.io/googletest/reference/matchers.html) for a complete list.
+
+---
+
+## Writing Custom Matchers
+
+`MATCHER` macros allow you to define your own matchers easily and integrate them into `EXPECT_THAT` and mock expectations.
+
+### Defining a Simple Matcher
+```cpp
+MATCHER(IsDivisibleBy7, "checks if a number is divisible by 7") {
+  return (arg % 7) == 0;
+}
+
+// Usage in tests:
+EXPECT_THAT(x, IsDivisibleBy7());
+EXPECT_CALL(mock, Foo(IsDivisibleBy7()));
+```
+
+### Parameterized Matchers
+When your matcher needs parameters, use `MATCHER_P` or its variants.
+
+```cpp
+MATCHER_P(InClosedRange, range, "") {
+  return arg >= range.first && arg <= range.second;
+}
+
+EXPECT_THAT(value, InClosedRange(std::make_pair(4, 6)));
+```
+
+### Advanced Controls
+- Use the `result_listener` stream inside the matcher body to provide detailed failure diagnostics.
+- You can compose matchers with logical combinators like `AllOf()`, `AnyOf()`, and `Not()`.
+
+### Polymorphic Matchers
+Custom matchers can be polymorphic, i.e., work with different types as needed, without explicit template type annotations.
+
+---
+
+## Best Practices for Advanced Assertions
+
+- **Use expressive matchers to keep tests readable and maintainable.** Avoid overly complex assertions; break them down with custom matchers.
+- **Prefer matchers in `EXPECT_THAT` over raw bool expressions** for clearer failure analysis and messaging.
+- **For container data, use `ElementsAre`, `Contains`, or `Each` instead of manual looping checks**.
+- **Lazy-evaluate matchers where possible to avoid unnecessary work on failure paths.**
+- **When writing custom matchers, keep them pure and without side effects** to avoid flaky tests.
+
+---
+
+## Using Advanced Matchers with GoogleMock
+
+GoogleMock fully supports matchers to describe argument expectations on mocks.
+
+### Example: Matching Complex Arguments
+```cpp
+EXPECT_CALL(mock_obj, Foo(
+    AllOf(
+        Field(&MyClass::foo, Eq(7)),
+        Property(&MyClass::bar, Ge(5)))));
+```
+This expects that `Foo()` is called with an object whose `foo` field is 7 and whose `bar()` method returns >= 5.
+
+### Matching Pointers and Values
+Use `Pointee()` to validate the value pointed to by a pointer argument.
+
+```cpp
+EXPECT_CALL(mock_obj, Bar(Pointee(Gt(10))));
+```
+Matches if the pointer passed points to a value greater than 10.
+
+### Matching Multiple Arguments as a Whole
+Use `With()` clauses and `Args<>` to assert relations between multiple function arguments.
+
+```cpp
+EXPECT_CALL(mock_obj, Method(_, _))
+    .With(Lt());  // Checks first < second.
+```
+
+### Sharing Matchers
+Store complex matchers in variables for reuse to improve readability and reduce redundancy.
+
+```cpp
+Matcher<int> in_range = AllOf(Gt(5), Lt(10));
+EXPECT_CALL(mock, Method(in_range));
+EXPECT_THAT(value, in_range);
+```
+
+---
+
+## Troubleshooting & Tips
+
+### Common Issues
+- **Matching errors:** Ensure your matchers correspond to correct argument types. Use `SafeMatcherCast<>` if types differ but are convertible.
+- **Unintended failures due to expectations order:** Remember `EXPECT_CALL`s are matched in reverse order. Place more specific expectations *after* general catch-alls.
+- **Sticky expectations:** Calls beyond the declared number of times cause errors unless `RetiresOnSaturation()` or sequences are used.
+- **Matcher purity:** Avoid calling mock functions inside matcher predicates, as side effects break test correctness.
+
+### Tips
+- **Suppress uninteresting call warnings by using `NiceMock`**, or specify behavior with `ON_CALL` for default mock method implementations.
+- **Use `InSequence` or `After` clauses** to control call order without making tests overly brittle.
+- **Use composite matchers like `AllOf`, `AnyOf` to express complex conditions clearly.**
+- **When matching containers, prefer `ElementsAre` or `Contains` over manual loops and checks.**
+
+---
+
+## Next Steps & Related Guides
+
+- **[Matchers Reference](https://google.github.io/googletest/reference/matchers.html)**: Complete list of built-in matchers.
+- **[gMock Cookbook](https://google.github.io/googletest/gmock_cook_book.html)**: Recipes and advanced techniques for mocking and matching.
+- **[Mocking Cheat Sheet](https://google.github.io/googletest/gmock_cheat_sheet.html)**: Quick reference for `MOCK_METHOD`, matchers, actions, and cardinalities.
+- **[Writing New Matchers Quickly](https://google.github.io/googletest/gmock_cook_book.html#NewMatchers)**: Detail on defining custom matchers.
+
+Explore further to master GoogleTest’s capabilities for robust testing and comprehensive mocking scenarios.
+
+---
+
+## Appendix: Custom Matcher Quick Template Example
+
+Here is a simple custom matcher class example illustrating how to implement the matching interface manually:
+
+```cpp
+class IsEvenMatcher {
+ public:
+  using is_gtest_matcher = void;
+
+  template <typename T>
+  bool MatchAndExplain(const T& n, std::ostream* /*listener*/) const {
+    return (n % 2) == 0;
+  }
+
+  void DescribeTo(std::ostream* os) const {
+    *os << "is an even number";
+  }
+
+  void DescribeNegationTo(std::ostream* os) const {
+    *os << "is not an even number";
+  }
+};
+
+// Factory function
+inline testing::Matcher<int> IsEven() {
+  return testing::MakePolymorphicMatcher(IsEvenMatcher());
+}
+```
+
+Use in a test:
+
+```cpp
+EXPECT_THAT(value, IsEven());
+EXPECT_CALL(mock, Foo(IsEven()));
+```
+
+---
+
+# References
+- [gMock Cookbook](https://google.github.io/googletest/gmock_cook_book.html)
+- [Matchers Reference](https://google.github.io/googletest/reference/matchers.html)
+- [GoogleTest Assertions](https://google.github.io/googletest/reference/assertions.html)
+- [Mocking Cheat Sheet](https://google.github.io/googletest/gmock_cheat_sheet.html)
+
+<GIT URL="https://github.com/google/googletest" paths={[{"path": "docs/gmock_cook_book.md", "range": "1-800"},{"path": "docs/reference/mocking.md", "range": "1-700"},{"path": "docs/reference/assertions.md", "range": "1-400"}]}/>
