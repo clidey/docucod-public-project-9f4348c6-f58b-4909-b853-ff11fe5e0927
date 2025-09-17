@@ -1,0 +1,257 @@
+---
+title: "Organizing and Structuring Test Cases"
+description: "Demonstrates best practices for structuring, naming, and grouping tests for maintainability and clarity, including test fixtures and suite organization strategies."
+---
+
+# Organizing and Structuring Test Cases
+
+## Overview
+
+This guide helps you master best practices for organizing your GoogleTest test code. Well-structured test cases improve maintainability, clarity, and ease troubleshooting as projects scale. You'll learn how to name, group, and structure tests and fixtures, manage test suites, and use test parameterization effectively.
+
+---
+
+## 1. Why Organize Your Test Cases?
+
+Imagine working on a large codebase where tests are scattered, inconsistently named, and hard to locate or reuse. Well-organized test cases prevent that chaos by:
+
+- Making tests easier to find and understand
+- Simplifying test maintenance as code evolves
+- Avoiding duplicated setup code through fixtures
+- Supporting scalable and readable test suites
+
+Organizing test cases is an investment that pays off with faster debugging, better collaboration, and more reliable tests.
+
+---
+
+## 2. Structuring Tests with Test Suites and Fixtures
+
+### 2.1 Group Related Tests in Suites
+
+Use test suites (formerly called test cases) to logically group related tests. Name test suites after the class, function, or module under test, following [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html#Function_Names).
+
+**Example:**
+
+```cpp
+TEST(FactorialTest, HandlesZeroInput) {
+  EXPECT_EQ(Factorial(0), 1);
+}
+
+TEST(FactorialTest, HandlesPositiveInput) {
+  EXPECT_EQ(Factorial(1), 1);
+  EXPECT_EQ(Factorial(2), 2);
+}
+```
+
+### 2.2 Use Test Fixtures for Shared Setup
+
+When multiple tests share common setup, use test fixtures to factor that out.
+
+- Derive a class from `testing::Test`
+- Put common resources as member variables
+- Optionally implement `SetUp()` and `TearDown()` for preparation and cleanup
+- Write tests using `TEST_F` referencing that fixture
+
+```cpp
+class QueueTest : public testing::Test {
+ protected:
+  QueueTest() {
+    q1_.Enqueue(1);
+    q2_.Enqueue(2);
+    q2_.Enqueue(3);
+  }
+
+  Queue<int> q0_;
+  Queue<int> q1_;
+  Queue<int> q2_;
+};
+
+TEST_F(QueueTest, IsEmptyInitially) {
+  EXPECT_EQ(q0_.size(), 0);
+}
+
+TEST_F(QueueTest, DequeueWorks) {
+  int* n = q1_.Dequeue();
+  ASSERT_NE(n, nullptr);
+  EXPECT_EQ(*n, 1);
+  delete n;
+}
+```
+
+> 🔑 Tip: Remember that GoogleTest creates a fresh fixture object for each test to ensure independence.
+
+### 2.3 Naming Fixtures and Tests
+
+- Test suite and fixture names should be descriptive and consistent
+- Tests should describe the behavior or scenario being tested
+- Avoid underscores (`_`) to follow the naming convention supported by GoogleTest macros
+
+---
+
+## 3. Organizing Parameterized Tests
+
+Parameterized tests help you write one test logic and run it with various input values.
+
+### 3.1 Defining Parameterized Test Fixtures
+
+- Derive the fixture from `testing::TestWithParam<T>`, where `T` is the parameter type
+
+```cpp
+class FooTest : public testing::TestWithParam<int> {};
+
+TEST_P(FooTest, HandlesParameters) {
+  int param = GetParam();
+  EXPECT_TRUE(Foo(param).IsValid());
+}
+```
+
+### 3.2 Instantiating Parameterized Tests
+
+Use `INSTANTIATE_TEST_SUITE_P` with parameter generators:
+
+```cpp
+INSTANTIATE_TEST_SUITE_P(
+    ValidInputs, FooTest,
+    testing::Values(1, 2, 3));
+```
+
+#### Common Parameter Generators
+
+| Generator          | Description
+|--------------------|--------------------------------------------
+| `Range(start,end)` | Generates values from `start` to `end-1`
+| `Values(...)`      | Generates explicitly specified values
+| `ValuesIn(container)` | Uses values from containers or arrays
+| `Bool()`           | Generates `{false, true}`
+| `Combine(...)`     | Cartesian product of multiple generators
+
+### 3.3 Custom Test Names
+
+You can provide a functor or lambda to generate more readable and unique test names based on parameters:
+
+```cpp
+INSTANTIATE_TEST_SUITE_P(
+    NamedParams, FooTest, testing::Values(1, 2, 3),
+    [](const testing::TestParamInfo<int>& info) {
+      return "Input_" + std::to_string(info.param);
+    });
+```
+
+> ❗ Warning: Test names must only include alphanumeric characters and underscores, no spaces or special symbols.
+
+---
+
+## 4. Suite-Level Setup and Shared Resources
+
+Sometimes setting up per-test resources is expensive. Use suite-level setup:
+
+- Define `static void SetUpTestSuite()` and `static void TearDownTestSuite()` public methods in your fixture
+- Initialize shared resources in `SetUpTestSuite()`, cleanup in `TearDownTestSuite()`
+
+```cpp
+class FooTest : public testing::Test {
+ public:
+  static void SetUpTestSuite() {
+    shared_resource_ = new Resource();
+  }
+  static void TearDownTestSuite() {
+    delete shared_resource_;
+    shared_resource_ = nullptr;
+  }
+
+ protected:
+  static Resource* shared_resource_;
+};
+
+Resource* FooTest::shared_resource_ = nullptr;
+```
+
+> 🔧 Best Practice: Make sure tests do not modify shared state or properly reset it to avoid flaky tests.
+
+---
+
+## 5. Naming and Grouping Best Practices
+
+- Group tests by logical components or functionalities
+- Use descriptive and consistent names for test suites, fixtures, and tests
+- Avoid mixing different types of tests (e.g., don't mix `TEST` and `TEST_F` with the same suite name)
+- Name parameterized tests to indicate the parameter scenarios
+- Use nested namespaces or directories in large projects to organize tests by module
+
+---
+
+## 6. Common Pitfalls and Troubleshooting
+
+### 6.1 Mixing Test Types in Same Suite
+
+GoogleTest enforces that all tests in a test suite use the same fixture class. Mixing `TEST` and `TEST_F` with the same suite name causes failures.
+
+### 6.2 Missing Instantiations
+
+- Every `TEST_P` fixture must have at least one corresponding `INSTANTIATE_TEST_SUITE_P` call or you get a failure in `GoogleTestVerification` suite.
+- Use `GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(YourTestFixture);` to suppress this if intentional.
+
+### 6.3 Naming Conflicts
+
+- Ensure unique and valid test suite and test names, especially when using macros that generate names with parameters.
+- Custom parameter name generators should produce valid C++ identifiers.
+
+### 6.4 Fixture Access in Parameterized Tests
+
+- `GetParam()` is only accessible inside `TEST_P` test bodies and fixture methods.
+
+### 6.5 Using ConvertGenerator
+
+- If your test fixture parameter type is not directly constructible from the generated parameters, use `ConvertGenerator` with a converting lambda or function.
+
+---
+
+## 7. Putting It All Together: Sample Workflow
+
+<Steps>
+<Step title="Define a Test Fixture with Shared Setup">
+Create a class derived from `testing::Test` or `testing::TestWithParam<T>` if parameterized. Put common objects or expensive setup in members or in `SetUp()`.
+</Step>
+<Step title="Write Test Cases Using TEST_F or TEST_P">
+Define tests referencing the fixture, using `TEST_F` for normal fixtures, or `TEST_P` for parameterized.
+</Step>
+<Step title="Choose Parameter Generators for Parameterized Tests">
+Use generator functions like `Values()`, `Range()`, `Combine()`, or `Bool()` to create parameter sets.
+</Step>
+<Step title="Instantiate Parameterized Tests">
+Call `INSTANTIATE_TEST_SUITE_P()` with a unique prefix and the parameter generator. Optionally provide a custom name generator.
+</Step>
+<Step title="Run Tests and Maintain"
+>
+Rerun tests frequently. Use well-structured organization to debug failures quickly. Consistently name and document your tests and suite.
+</Step>
+</Steps>
+
+---
+
+## 8. Additional Resources
+
+- [GoogleTest Primer](../../guides/getting-started/primer-essential-features) for basics on fixtures and tests
+- [Value-Parameterized Tests Guide](../../guides/core-workflows/parameterized-typed-tests) for more on test parameterization
+- [Testing Reference](../../docs/reference/testing) for macro and class details
+- [GoogleTest Samples](../../docs/samples) for practical examples
+
+
+---
+
+## 9. Troubleshooting Tips
+
+- When tests don't run as expected, verify that `INSTANTIATE_TEST_SUITE_P` is called (or allow uninstantiated test suite).
+- Use `SCOPED_TRACE` to add contextual logs in complex subroutines.
+- Keep test fixture setup fast and deterministic to avoid flakiness.
+- Avoid sharing mutable static data unless properly synchronized and reset.
+
+---
+
+## Summary
+
+Organizing and structuring test cases involves carefully grouping related tests into suites and using fixtures to share setup logic. Parameterized tests allow reusing test code with multiple inputs, and suite-level setup minimizes costly initializations. Proper naming and avoiding mixing test macros ensure smooth test execution and maintainable code.
+
+<Note>
+This guide focuses exclusively on organizing and structuring GoogleTest test cases, covering aspects from basic test grouping through advanced parameterization and naming strategies.
+</Note>
