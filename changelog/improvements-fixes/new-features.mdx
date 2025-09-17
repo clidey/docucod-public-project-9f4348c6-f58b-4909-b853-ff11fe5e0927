@@ -1,0 +1,132 @@
+---
+title: "New Features and Enhancements"
+description: "Summarizes new testing capabilities, improved APIs, and expanded platform support. Each feature includes usage tips and references to relevant documentation for quick adoption."
+---
+
+# New Features and Enhancements
+
+The New Features and Enhancements page offers a concise overview of the latest capabilities added to GoogleTest that enhance testing workflows, modernize the API usability, and broaden platform compatibility. Each highlighted feature is accompanied by practical usage tips and pointers to detailed documentation, empowering users to quickly adopt and benefit from these improvements.
+
+---
+
+## 1. Enhanced Testing Capabilities
+
+GoogleTest has introduced new constructs and capabilities to make your testing more expressive and robust:
+
+### - Improved Parameterized and Typed Tests
+
+- Support for advanced value-parameterized and typed tests through new macros and registration methods enables running tests across various input values and types more efficiently.
+- Tips:
+  - Use `TEST_P` alongside `INSTANTIATE_TEST_SUITE_P` to easily generate multiple tests from a single definition.
+  - Leverage `TYPED_TEST_SUITE` and `TYPED_TEST` macros to run the same test logic across multiple data types.
+
+For comprehensive instructions, see the [Parameterized and Typed Test API](https://google.github.io/googletest/reference/gtest-core/parameterized-typed-tests.html).
+
+### - Refined Death Test Styles
+
+- A new thread-safe death test style balances reliability and performance, especially in multithreaded environments.
+- Tips:
+  - Set the death test style using `GTEST_FLAG_SET(death_test_style, "threadsafe");` in `main()` or individual tests.
+  - Follow the convention to name death test suites ending with `DeathTest` to ensure proper test ordering and thread safety.
+
+Learn more in the [Death Tests API](https://google.github.io/googletest/reference/advanced-internals/death-tests-api.html) and [Advanced GoogleTest Topics](https://google.github.io/googletest/advanced.html#death-tests).
+
+---
+
+## 2. Modernized and More Powerful APIs
+
+### - Unified Mocking Macros
+
+- The deprecated set of macro forms have been unified into a single `MOCK_METHOD` macro that simplifies mocking virtual, non-virtual, and move-only methods.
+- Tips:
+  - Replace `MOCK_METHODn` with `MOCK_METHOD` for new mocks.
+  - Use strictness modifiers like `NiceMock` or `StrictMock` to control mock behavior.
+
+Consult the [Mock Object API](https://google.github.io/googletest/reference/matchers-actions/mock-object-api.html) and migration guides for detailed usage and migration instructions.
+
+### - Extended Assertion Suite
+
+- GoogleTest provides richer predicates and predicate-format assertions for clearer failure messages.
+- Usage Tips:
+  - Write custom predicates returning `::testing::AssertionResult` to get detailed error reports.
+  - Use `EXPECT_THAT` combined with built-in or custom matchers for expressive assertion logic.
+
+See the [Advanced Assertions and Custom Matchers](https://google.github.io/googletest/gmock_cook_book.html#writing-matchers) guide and the [Assertions Reference](https://google.github.io/googletest/reference/assertions.html) for best practices.
+
+---
+
+## 3. Expanded Platform and Environment Support
+
+### - Cross-Platform Build Flexibility
+
+- GoogleTest now requires a minimum of C++17 standard, ensuring modern language features across all supported platforms.
+- Platform-indicating macros provide granular information about the OS and environment, enhancing portability and conditional compilation.
+
+### - Thread Safety and Synchronization Enhancements
+
+- Improved detection and use of threading primitives (`Mutex`, `ThreadLocal`) across Windows, POSIX, and other environments.
+- Boolean macros like `GTEST_IS_THREADSAFE` indicate the thread-safety status.
+
+### - Stream Capture and Logging Enhancements
+
+- APIs to capture and retrieve stdout/stderr output during tests are now available on most platforms.
+- Enhanced logging macros provide consistent message streaming with severity levels.
+
+Refer to the [Portability & Internal Utilities](https://google.github.io/googletest/reference/advanced-internals/portability-internals.html) section for technical details.
+
+---
+
+## 4. Adoption Tips and Best Practices
+
+- Always invoke `testing::InitGoogleTest(&argc, argv)` before running tests to initialize flag parsing and environment setup.
+- Use `RUN_ALL_TESTS()` as the sole entry point for executing tests and properly inspect its return value.
+- Prefer fixtures (`TEST_F`) when multiple tests share setup code to promote test isolation and reusability.
+- Use `RecordProperty()` to log additional test metadata useful for reports.
+
+Example snippet to initialize and run tests:
+
+```cpp
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+```
+
+---
+
+## 5. References and Resources
+
+- [GoogleTest Primer](https://google.github.io/googletest/primer.html): Comprehensive introduction and essential features.
+- [Testing Reference](https://google.github.io/googletest/reference/testing.html): Core API details including test registration and assertions.
+- [Advanced GoogleTest Topics](https://google.github.io/googletest/advanced.html): Techniques like death testing, typed tests, predicate assertions.
+- [Mock Object API Reference](https://google.github.io/googletest/reference/matchers-actions/mock-object-api.html) and [gMock Cookbook](https://google.github.io/googletest/gmock_cook_book.html): For mocking detailed guidance.
+- [Changelog Releases Overview](https://google.github.io/googletest/changelog/version-history/releases-overview.html): Stay updated on version changes.
+
+---
+
+## 6. Troubleshooting
+
+- If tests fail to run or link properly, verify that you meet the C++17 requirement and your build system passes the necessary compiler flags.
+- When death tests hang or fail unexpectedly, confirm that multi-threading outside death tests is minimized and the test suite is appropriately named.
+- For issues capturing output, ensure your platform supports stream redirection (`GTEST_HAS_STREAM_REDIRECTION`).
+- Use the flag `--gtest_list_tests` to enumerate available tests and validate integration.
+
+For detailed troubleshooting steps, see the [Troubleshooting Common Setup Issues](https://google.github.io/googletest/getting-started/troubleshooting-and-validation/common-issues.html) guide.
+
+---
+
+## 7. Getting Started with New Features
+
+Once you have GoogleTest installed and configured:
+
+- Start writing or upgrading tests to use `TEST_P` and `TYPED_TEST` for scalable parameterized scenarios.
+- Refactor mocks to use `MOCK_METHOD`, benefiting from enhanced clarity and compatibility.
+- Incorporate `EXPECT_THAT` with matchers for succinct and expressive assertions.
+- Manage test environment setups using `Environment` classes for shared resources.
+- Adopt the thread-safe death test style for stable tests in concurrency-heavy codebases.
+
+Explore examples in the [samples directory of the GitHub repository](https://github.com/google/googletest/tree/main/googletest/samples) to see these features in action.
+
+---
+
+*This page empowers users to adopt GoogleTest's latest enhancements effectively and smoothly integrate advanced testing practices into their development workflows.*
