@@ -1,0 +1,256 @@
+---
+title: "Core Capabilities: Testing and Mocking"
+description: "Explore the primary testing and mocking features GoogleTest offers—automatic test discovery and registration, rich built-in assertions, parameterized and typed tests, mocking APIs, and options for fatal vs. non-fatal failures. Quickly recognize how these tools streamline C++ test development for diverse workflows."
+---
+
+# Core Capabilities: Testing and Mocking
+
+GoogleTest's core strengths lie in its comprehensive, expressive, and easy-to-use testing and mocking facilities designed to streamline the development of reliable C++ code. This page explores these primary testing and mocking features, demonstrating how they empower you to write powerful tests with minimal overhead.
+
+---
+
+## Unlocking Efficient C++ Testing and Mocking
+
+GoogleTest provides an array of well-integrated tools that automatically discover, register, and execute tests. Rich built-in assertions, flexible parameterized tests, and an advanced mocking framework combine to form a seamless testing workflow that puts your focus squarely on validating your code.
+
+### What This Page Covers
+
+- **Automatic test discovery and registration:** Never manually enumerate tests again.
+- **Rich built-in assertions:** Check conditions with detailed failure messages.
+- **Parameterized and typed tests:** Test your code over multiple inputs and types effortlessly.
+- **Powerful mocking APIs:** Replace dependencies with mock objects to isolate components.
+- **Failure handling options:** Decide between fatal and non-fatal assertion behaviors.
+
+---
+
+## The Essence of GoogleTest’s Testing and Mocking
+
+GoogleTest is designed so you can express your expectations clearly on the behavior of your code using C++ macros and classes.
+
+- It automatically registers all tests with no need for manual bookkeeping.
+- Supports fine-grained control of test flow through assertions that either abort or continue execution, helping you decide how strict your tests should be.
+- Enables writing parameterized tests where a single test definition is executed multiple times with different parameters, eliminating repetitive code.
+- Offers typed tests that run the same test logic over a suite of types, perfect for template-based code verification.
+- Includes a mocking API to simulate and verify interactions between components, making complex integration scenarios testable in isolation.
+
+This page focuses on introducing these capabilities — the fundamental building blocks for robust testing and mocking with GoogleTest.
+
+---
+
+## Key Features & Capabilities
+
+### 1. Automatic Test Discovery & Registration
+
+GoogleTest auto-discovers test functions marked with `TEST()`, `TEST_F()`, `TEST_P()`, and related macros.
+
+- No need to manually add tests to lists.
+- Tests defined anywhere in the codebase register themselves automatically.
+- This eliminates human errors and keeps your test suite always up to date.
+
+### 2. Rich Built-In Assertions
+
+Assert conditions conveniently with macros starting with `EXPECT_` or `ASSERT_` to control failure impact:
+
+- **`EXPECT_` macros** generate non-fatal failures so tests continue.
+- **`ASSERT_` macros** generate fatal failures which abort the current test function immediately.
+
+Common assertions include:
+
+```cpp
+// Checks if two values are equal
+EXPECT_EQ(expected, actual);
+
+// Checks a boolean condition
+ASSERT_TRUE(condition);
+
+// Checks string equality
+EXPECT_STREQ(c_string_1, c_string_2);
+
+// Checks floating-point equality with ULP tolerance
+EXPECT_FLOAT_EQ(val1, val2);
+```
+
+Additionally, GoogleTest supports:
+
+- Exception assertions (e.g., `EXPECT_THROW`).
+- Predicate assertions for custom Boolean checks.
+- Matcher-based assertions provided by GoogleMock (e.g., `EXPECT_THAT`).
+
+### 3. Parameterized and Typed Tests
+
+#### Parameterized Tests
+
+Write tests that run multiple instances using diverse input values without duplicating code:
+
+- Define a test fixture class derived from `TestWithParam<T>`.
+- Use `TEST_P()` macros to write parameterized tests referring to the current parameter with `GetParam()`.
+- Instantiate the test suite with a parameter generator like `Values()`, `Range()`, or `Combine()`.
+
+Example:
+
+```cpp
+class FactorialTest : public testing::TestWithParam<int> {};
+
+TEST_P(FactorialTest, HandlesPositiveInput) {
+  int n = GetParam();
+  EXPECT_GT(Factorial(n), 0);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+  PositiveNumbers, FactorialTest, testing::Values(1, 2, 3, 8));
+```
+
+#### Typed Tests
+
+Ensure the same test logic applies over multiple types:
+
+- Create a fixture class template parameterized by type.
+- Define a list of types to test with `Types<>`.
+- Register the test suite with `TYPED_TEST_SUITE`.
+- Write typed test cases with `TYPED_TEST`, using the special `TypeParam` type alias.
+
+Example:
+
+```cpp
+template <typename T>
+class NumericTest : public testing::Test {
+ public:
+  T value_;
+};
+
+using NumericTypes = ::testing::Types<int, double, float>;
+TYPED_TEST_SUITE(NumericTest, NumericTypes);
+
+TYPED_TEST(NumericTest, IsPositiveInitially) {
+  EXPECT_GT(this->value_, 0);
+}
+```
+
+### 4. Mocking APIs
+
+GoogleMock integrates tightly with GoogleTest for mocking:
+
+- Use `MOCK_METHOD()` in mock classes to define mocked methods.
+- Set expectations with `EXPECT_CALL()`, specifying call count, argument matchers, call order, and actions.
+- Default behaviors can be set using `ON_CALL()`.
+- Define method behaviors with `WillOnce()`, `WillRepeatedly()`, etc.
+- Enforce call sequence and dependencies with `InSequence`, `After`.
+
+Example:
+
+```cpp
+class MockDatabase {
+ public:
+  MOCK_METHOD(bool, Connect, (const std::string& host), ());
+};
+
+TEST(DatabaseTest, ConnectsSuccessfully) {
+  MockDatabase db;
+  EXPECT_CALL(db, Connect(testing::StrEq("localhost")))
+      .WillOnce(testing::Return(true));
+
+  bool result = db.Connect("localhost");
+  EXPECT_TRUE(result);
+}
+```
+
+### 5. Fatal vs. Non-Fatal Failures
+
+GoogleTest assertions distinguish between failures that:
+
+- Abort the current function (fatal, `ASSERT_*` macros), useful when continuing does not make sense.
+- Allow the test function to continue running (non-fatal, `EXPECT_*` macros), useful for identifying multiple issues in one run.
+
+Understanding this difference helps you build effective tests with clear diagnostics.
+
+---
+
+## Why Should You Care?
+
+GoogleTest's testing and mocking features translate into practical benefits:
+
+- **Boosted Quality:** Rapidly uncover bugs with precise checks and meaningful diagnostics.
+- **Efficient Development:** Write less repetitive code with parameterized and typed tests.
+- **Seamless Isolation:** Mock dependencies to test components individually.
+- **Flexible Control:** Choose assertion fatality behavior to suit test robustness.
+- **Cross-Platform Consistency:** Uniform test APIs for Windows, Linux, and macOS.
+
+Consider the difference before and after using GoogleTest:
+
+| Without GoogleTest                 | With GoogleTest                                   |
+|----------------------------------|--------------------------------------------------|
+| Manual test registration          | Automatic test discovery and registration         |
+| Verbose, unclear failure logs     | Clear, detailed assertion failure messages        |
+| Manual repetitive tests for inputs| Parameterized tests that reuse code smoothly       |
+| No mocking support or custom mocks| Built-in, expressive mocking support              |
+| Tests tightly coupled and hard to isolate | Easy to isolate components with mocks          |
+
+This reduces debugging time, improves confidence in changes, and supports continuous integration environments efficiently.
+
+---
+
+## Getting Started Preview
+
+Starting to use GoogleTest’s testing and mocking features involves:
+
+- Writing basic tests with the `TEST()` and `TEST_F()` macros.
+- Learning to use assertions like `EXPECT_EQ` and `ASSERT_TRUE`.
+- Creating parameterized tests with `TEST_P()` and instantiating them with `INSTANTIATE_TEST_SUITE_P()`.
+- Defining mock classes using `MOCK_METHOD` and setting up call expectations with `EXPECT_CALL`.
+
+Before you begin, ensure you have GoogleTest correctly installed and integrated.
+Refer to [System Requirements & Supported Platforms](/getting-started/prerequisites-and-installation/system-requirements) and [Installing with CMake](/getting-started/prerequisites-and-installation/installation-cmake) for setup.
+
+For a practical first step, check out [Your First Test: Hello, GoogleTest!](/getting-started/configuration-and-first-test/hello-world-test) and [Your First Mock: Basics with GoogleMock](/getting-started/configuration-and-first-test/first-mock-example).
+
+---
+
+## Practical Tips & Best Practices
+
+- **Use non-fatal assertions (`EXPECT_*`) where possible** to gather as much failure info in one run.
+- **Use `ASSERT_*` when failure should stop further test actions** to avoid crashes or invalid test state.
+- **Parameterize tests** rather than duplicating with multiple inputs.
+- **Name fixtures and tests clearly, avoiding underscores**, to align with GoogleTest conventions.
+- **Leverage `SCOPED_TRACE` to add context** when debugging complex chained calls.
+- **Mock only external dependencies**; keep internal logic verified by simple assertions.
+- **Clean up mocks and reset expectations between tests** to avoid inter-test dependencies.
+
+## Common Pitfalls
+
+- Using fatal assertions in non-void functions leads to confusing compile errors.
+- Forgetting to instantiate parameterized tests causes silent missing tests.
+- Overusing mocks can lead to brittle tests; prefer value verification when possible.
+- Accessing private members improperly without friends or test helpers causes compilation errors.
+
+---
+
+For comprehensive examples, advanced patterns, and integration guidance, explore the rest of the documentation sections linked below.
+
+---
+
+## Related Documentation
+
+- [What is GoogleTest?](/overview/product-intro-core-features/what-is-googletest) — Overview of GoogleTest
+- [Organizing and Structuring Test Cases](/guides/core-workflows/organizing-tests) — Advanced testing workflows
+- [Mock Behavior and Expectations](/guides/core-workflows/mock-behavior-expectations) — Deep dive into mocking
+- [Common Use Cases & Target Audience](/overview/product-intro-core-features/primary-use-cases) — Who benefits from these features?
+
+---
+
+## Summary
+
+GoogleTest’s core testing and mocking features provide a powerful, user-friendly framework to write expressive, maintainable C++ tests. Its automatic test registration, rich assertions, parameterization, typed tests, and comprehensive mocking APIs enable efficient, robust verification of complex code bases, improving developer productivity and software quality.
+
+---
+
+## Quick Links
+
+- [Getting Started with GoogleTest](https://github.com/google/googletest/blob/main/docs/primer.md)
+- [Assertions Reference](https://github.com/google/googletest/blob/main/docs/reference/assertions.md)
+- [Mocking Reference](https://github.com/google/googletest/blob/main/docs/reference/mocking.md)
+- [Advanced GoogleTest Topics](https://github.com/google/googletest/blob/main/docs/advanced.md)
+- [GitHub Repository](https://github.com/google/googletest)
+
+---
+
+This overview is your gateway to mastering testing and mocking with GoogleTest, helping you to streamline development and build more reliable C++ software.
