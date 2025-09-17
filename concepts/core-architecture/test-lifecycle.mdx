@@ -1,0 +1,218 @@
+---
+title: "Test Lifecycle and Discovery"
+description: "Learn how GoogleTest automatically discovers, registers, and executes tests. This page covers the lifecycle from test definition to result reporting, explaining how test cases are structured, registered, and managed at runtime, and how the framework integrates with build systems."
+---
+
+# Test Lifecycle and Discovery
+
+GoogleTest automates the discovery, registration, execution, and reporting of C++ tests, empowering developers to focus on writing meaningful test logic without worrying about manual test management. This guide walks you through GoogleTest's lifecycle — from defining a test to how tests are discovered at runtime, managed during execution, and integrated into build environments.
+
+---
+
+## 1. Defining Tests: Writing and Declaring
+
+The foundation of GoogleTest is the concise declaration of test functions which the framework automatically detects and manages.
+
+- **TEST Macro**: Defines a basic test without a fixture. You specify a test suite (a group) name and a test name.
+
+  ```cpp
+  TEST(MySuite, MyTest) {
+    EXPECT_EQ(1, 1);  // Test logic and assertions
+  }
+  ```
+
+- **TEST_F Macro**: Defines a test using a test fixture — a class derived from `testing::Test` that allows shared setup and teardown across multiple tests.
+
+  ```cpp
+  class MyFixture : public ::testing::Test {
+   protected:
+    void SetUp() override {
+      // Shared setup code
+    }
+  };
+
+  TEST_F(MyFixture, Test1) {
+    // Uses MyFixture set up
+  }
+  ```
+
+- **TEST_P and INSTANTIATE_TEST_SUITE_P Macros**: Support parameterized tests where different inputs are tested against the same test logic, allowing concise coverage of multiple scenarios.
+
+To dynamically register tests not using macros, GoogleTest provides the advanced `RegisterTest` template API.
+
+---
+
+## 2. Test Registration and Automatic Discovery
+
+GoogleTest performs automatic test discovery by registering test definitions as `TestInfo` objects linked to their corresponding `TestSuite`. This registration happens before `RUN_ALL_TESTS()` is called, ensuring all tests are known to the framework.
+
+- Each `TestInfo` retains metadata: suite name, test name, source file, line, and a factory callable to create test instances.
+- Registered test suites (`TestSuite`) maintain a collection of tests, manage their lifecycle, and execute suite-level setup/teardown.
+- Test registration is hierarchical: suites contain tests; tests belong to the global `UnitTest` singleton instance.
+
+This automatic discovery eliminates the need for manual test lists or configuration.
+
+---
+
+## 3. Test Execution Lifecycle
+
+During execution, each test progresses through a precise lifecycle: 
+
+1. **SetUpTestSuite**: Called once before the first test in a suite, enabling shared resource initialization.
+2. **Test Object Construction**: A fresh test object derived from `testing::Test` is created before each individual test.
+3. **SetUp()**: Runs setup code specific to the test instance.
+4. **TestBody()**: Contains the actual test code, including assertions and logic.
+5. **TearDown()**: Performs test-specific cleanup.
+6. **Destruction**: The test object is destroyed, ensuring no state leaks between tests.
+7. **TearDownTestSuite**: Called after the last test in the suite completes.
+
+GoogleTest manages this lifecycle internally and automatically invokes overridable hooks (`SetUpTestSuite()`, `SetUp()`, `TearDown()`, etc.) as needed.
+
+Tests run only if they are enabled (not disabled or filtered out).
+
+---
+
+## 4. Filtering, Sharding, and Test Ordering
+
+Users can control which tests run using filters and can distribute tests across machines using shards.
+
+- **Filters**: `--gtest_filter` flag lets users specify glob patterns to select or exclude tests by full test names.
+- **Sharding**: Environment variables `GTEST_TOTAL_SHARDS` and `GTEST_SHARD_INDEX` partition tests, enabling parallel execution on different machines.
+- **Randomization**: `--gtest_shuffle` runs tests in random order; seed can be controlled for reproducibility.
+
+This flexibility supports complex workflows like selective runs, parallel testing, and isolating flaky tests.
+
+---
+
+## 5. Test Results Reporting
+
+Post execution, GoogleTest generates detailed results:
+
+- Each test's outcome is recorded in a `TestResult` object, listing passes, failures, skips, and timing.
+- Failures report file names, lines, failure types, and messages.
+- Aggregated test suite and program summary are provided.
+- XML or JSON reports can be generated for CI integration using the `--gtest_output` flag.
+- Test properties can be logged via `Test::RecordProperty`, enriching test metadata.
+
+The framework provides listeners (`TestEventListener`) to receive and customize these reporting events.
+
+---
+
+## 6. Integration with Build Systems
+
+GoogleTest integrates smoothly with common build tools:
+
+- **CMake**: Adds GoogleTest targets, manages dependencies, and enables test discovery via CTest.
+- **Bazel**: Offers GoogleTest rules for defining test targets.
+
+Running `RUN_ALL_TESTS()` from your `main()` method launches execution after proper `InitGoogleTest()` initialization.
+
+C++17 compliance and compatible toolchains are required.
+
+---
+
+## Practical Workflow Example
+
+```cpp
+// Define a fixture
+class FooTest : public ::testing::Test {
+protected:
+  void SetUp() override { /* setup code */ }
+  void TearDown() override { /* cleanup */ }
+};
+
+// Define a test using the fixture
+TEST_F(FooTest, DoesBar) {
+  EXPECT_EQ(2, 1 + 1);
+}
+
+// Main
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+```
+
+- Running this executable discovers and registers `FooTest.DoesBar`.
+- Executes the test lifecycle including `SetUpTestSuite()`, `SetUp()`, `TestBody()`, `TearDown()`, and `TearDownTestSuite()`.
+- Reports the results to console and optionally XML/JSON.
+
+---
+
+## Troubleshooting Common Issues
+
+- **Test Not Running**: Verify that the test is not disabled and matches the filter.
+- **Fixture Setup Not Called**: Ensure correct `SetUp()` / `TearDown()` override (case-sensitive).
+- **Mixing TEST and TEST_F in the Same Suite**: All tests in a suite must use the same fixture class.
+- **Ignoring RUN_ALL_TESTS Return Value**: Always return the value of `RUN_ALL_TESTS()` from `main()` to correctly reflect test success.
+- **Shadowing or Multiple Registrations**: Avoid duplicate test names in the same suite.
+
+Use GoogleTest flags like `--gtest_list_tests` to inspect available tests.
+
+---
+
+## Visualizing the Test Lifecycle Architecture
+
+```mermaid
+flowchart TD
+
+  subgraph Definition
+    A[Define TEST / TEST_F / TEST_P]
+    A --> B[TestInfo Registration]
+  end
+
+  subgraph Registration
+    B --> C[TestSuite]
+    C --> D[UnitTest Singleton]
+  end
+
+  subgraph Execution
+    D --> E[RUN_ALL_TESTS()]
+    E --> F[For Each TestSuite]
+    F --> G[SetUpTestSuite()]
+    G --> H[For Each Test]
+    H --> I[Construct Test Object]
+    I --> J[SetUp()]
+    J --> K[TestBody()]
+    K --> L[TearDown()]
+    L --> M[Delete Test Object]
+    H --> N[TearDownTestSuite()]
+  end
+
+  subgraph Reporting
+    M --> O[TestResult]
+    O --> P[Output Results (Console/XML/JSON)]
+  end
+
+  classDef step fill:#f9f,stroke:#333,stroke-width:2px;
+  class A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P step;
+```
+
+---
+
+## Key Takeaways
+
+- Defining tests with macros triggers automatic registration, easing large-scale test management.
+- The lifecycle hooks allow flexible shared and per-test setup and teardown.
+- Filters, sharding, and test ordering empower efficient test execution strategies.
+- The framework supports rich result reporting with extensibility.
+- GoogleTest integrates naturally into standard C++ build and test workflows.
+
+Explore further by diving into parameterized and typed tests, mocking with GoogleMock, and advanced event listener customization.
+
+---
+
+## Related Documentation
+
+- [Testing Reference](../api-reference/gtest-core/testing.md) — Understand test-related API details.
+- [Registering tests programmatically](../advanced.md#registering-tests-programmatically) — For dynamic test registration.
+- [Global Set-Up and Tear-Down](../advanced.md#global-set-up-and-tear-down) — Manage environment-wide setup.
+- [Integrating with Bazel, CMake, and IDEs](../guides/advanced-patterns/integration-build-systems.md) — Learn build system integration.
+- [Parameterized and Typed Tests](../concepts/advanced-concepts/parameterized-tests.md) — Apply parameterized approaches.
+
+---
+
+For detailed API specifics, consult the header [`gtest/gtest.h`](https://github.com/google/googletest/blob/main/googletest/include/gtest/gtest.h) on GitHub.
+
+
+
