@@ -1,0 +1,186 @@
+---
+title: "What is GoogleTest?"
+description: "Gain a clear understanding of GoogleTest as Google's open-source C++ test framework. Discover how it merges traditional unit testing with advanced mocking via xUnit patterns, and see why major projects like Chromium, LLVM, and OpenCV trust it for robust, scalable validation."
+---
+
+# What is GoogleTest?
+
+## Unlocking Powerful C++ Testing
+
+GoogleTest, developed by Google’s Testing Technology team, stands as a robust and versatile C++ testing framework engineered for real-world complexities across platforms—Linux, Windows, and Mac alike. By seamlessly merging traditional unit testing patterns with advanced mocking capabilities under the familiar xUnit architecture, GoogleTest enables developers to write comprehensive, scalable tests that not only validate correctness but also boost maintainability and debugging efficiency.
+
+## Why Choose GoogleTest?
+
+Millions of lines of code rely on GoogleTest’s unique approach to delivering quality assurance. Here's what makes it indispensable:
+
+- **Isolation and Repeatability:** Each test runs independently on a new object, ensuring that tests do not interfere with one another. You can isolate and debug a failing test swiftly.
+- **Clean Organization:** Group related tests into suites reflecting the code structure, sharing setup and helper routines, making your tests maintainable and intuitive.
+- **Cross-Platform Compatibility:** Write once; run anywhere. Whether your environment uses exceptions or not, or if you are on an exotic compiler or OS, GoogleTest adapts.
+- **Rich Diagnostics:** Instead of halting at the first failure, GoogleTest reports multiple failures in a single run, giving you a comprehensive view of issues.
+- **Focus on Test Logic:** GoogleTest automates bookkeeping for test registration and execution, letting you concentrate on what's important—the test content.
+- **Efficient Execution:** Share expensive setup resources across tests with suite-level lifecycle control and enjoy tests that run quickly.
+
+## Core Concepts Explained
+
+In GoogleTest, testing is built up from simple assertions to organized test programs:
+
+- **Assertions:** Macros that verify conditions and report success, nonfatal failures (test continues), or fatal failures (current function aborts). They provide detailed context, including file, line number, and optional custom messages.
+
+- **Tests:** Functions using assertions to check code behavior. A test passes if all assertions succeed and doesn’t crash.
+
+- **Test Suites:** Logical groups of tests that mirror your code's structure. They allow sharing of resources and setup.
+
+- **Test Fixtures:** Classes derived from `testing::Test` providing a shared setup/teardown environment for tests in a suite.
+
+Here's a simple example to illustrate:
+
+```cpp
+TEST(FactorialTest, HandlesZeroInput) {
+  EXPECT_EQ(Factorial(0), 1);
+}
+
+TEST(FactorialTest, HandlesPositiveInput) {
+  EXPECT_EQ(Factorial(1), 1);
+  EXPECT_EQ(Factorial(2), 2);
+  EXPECT_EQ(Factorial(3), 6);
+  EXPECT_EQ(Factorial(8), 40320);
+}
+```
+
+Groups of related tests form the `FactorialTest` suite above.
+
+## Writing Tests with Fixtures
+
+When multiple tests require the same setup, use *test fixtures*. 
+
+Define a fixture class that inherits from `testing::Test`:
+
+```cpp
+class QueueTest : public testing::Test {
+ protected:
+  QueueTest() {
+    // Setup code here
+    q1_.Enqueue(1);
+    q2_.Enqueue(2);
+    q2_.Enqueue(3);
+  }
+
+  Queue<int> q0_;
+  Queue<int> q1_;
+  Queue<int> q2_;
+};
+```
+
+Then write tests accessing your fixture’s members using `TEST_F`:
+
+```cpp
+TEST_F(QueueTest, IsEmptyInitially) {
+  EXPECT_EQ(q0_.size(), 0);
+}
+
+TEST_F(QueueTest, DequeueWorks) {
+  int* n = q0_.Dequeue();
+  EXPECT_EQ(n, nullptr);
+
+  n = q1_.Dequeue();
+  ASSERT_NE(n, nullptr);
+  EXPECT_EQ(*n, 1);
+  EXPECT_EQ(q1_.size(), 0);
+  delete n;
+}
+```
+
+Each test gets a fresh fixture instance ensuring isolation.
+
+## Running Your Tests
+
+GoogleTest automatically registers tests defined with `TEST()` and `TEST_F()` macros, so you don't need to list them manually.
+
+To run all tests, call:
+
+```cpp
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+```
+
+- `InitGoogleTest` sets up GoogleTest’s environment and command-line flags.
+- `RUN_ALL_TESTS` executes all registered tests, returning 0 if all succeed, or 1 otherwise.
+
+For most users, linking against `gtest_main` provides a default main() so you don't need to write one.
+
+## Best Practices & Tips
+
+- **Avoid mixing test fixtures in a suite.** Use either `TEST` or `TEST_F` within the same suite, but not both.
+- **Use `EXPECT_` for non-fatal checks** to gather multiple errors per test; use `ASSERT_` for fatal checks where continuing makes no sense.
+- **Leverage suite-level setup/teardown** with `SetUpTestSuite()` and `TearDownTestSuite()` for expensive shared resources.
+- **Provide meaningful failure messages** by streaming custom information into assertions, e.g., `EXPECT_EQ(x, y) << "x and y differ"`.
+- **Name your tests and suites clearly:** Follow Google C++ style guide for naming.
+- **Keep tests independent and stateless** to avoid flaky results.
+
+## Common Pitfalls
+
+- Fatal failures in constructors or destructors do not abort the test, which can lead to partial constructions. Use `SetUp()` and `TearDown()` instead.
+- Remember to check the return value of `RUN_ALL_TESTS()` to propagate test success/failure accurately.
+- When dealing with wide strings or null pointers in assertions, GoogleTest safely converts and prints them in a readable format.
+
+## Conclusion
+
+GoogleTest offers a comprehensive, cross-platform framework for writing structured, maintainable, and efficient C++ tests, empowering developers to assert correctness confidently and deliver high-quality software.
+
+---
+
+**Explore next:**
+- [GoogleTest Primer](https://github.com/google/googletest/blob/main/docs/primer.md)
+- [Testing Reference: TEST, TEST_F, TEST_P](https://github.com/google/googletest/blob/main/docs/reference/testing.md#test)
+- [Advanced GoogleTest Topics](https://github.com/google/googletest/blob/main/docs/advanced.md)
+
+**Related pages in Overview:**
+- [Core Capabilities](../core-capabilities-overview)
+- [Organizing and Structuring Test Cases](../../guides/core-workflows/organizing-tests)
+- [Parameterized and Typed Tests](../../guides/core-workflows/parameterized-typed-tests)
+
+**Official repository:** [https://github.com/google/googletest](https://github.com/google/googletest)
+
+---
+
+## Example: Simple test with GoogleTest
+
+```cpp
+#include <gtest/gtest.h>
+
+// A simple function to test.
+int Factorial(int n) {
+  return n <= 1 ? 1 : (n * Factorial(n - 1));
+}
+
+// Group related tests into a Test Suite named FactorialTest.
+TEST(FactorialTest, HandlesZeroInput) {
+  EXPECT_EQ(Factorial(0), 1);
+}
+
+TEST(FactorialTest, HandlesPositiveInput) {
+  EXPECT_EQ(Factorial(1), 1);
+  EXPECT_EQ(Factorial(2), 2);
+  EXPECT_EQ(Factorial(3), 6);
+}
+
+int main(int argc, char **argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+```
+
+Run this program to see your tests execute with detailed pass/fail output.
+
+---
+
+## Troubleshooting
+
+- If your tests don't run, ensure the test registration macros (`TEST`, `TEST_F`) were used and you called `RUN_ALL_TESTS()`.
+- Linking errors regarding `main`? Link against `gtest_main` or provide your own main.
+- Tests randomly failing? Make sure they are independent and do not share mutable state across tests.
+- Want to debug a failing assert? Use `--gtest_break_on_failure` flag to make the test stop on failure.
+
+
