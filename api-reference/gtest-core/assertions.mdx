@@ -1,0 +1,326 @@
+---
+title: "Assertions & Expectations"
+description: "Covers core assertion macros (ASSERT_*, EXPECT_*), detailed usage of fatal vs. non-fatal failures, custom predicate assertions, and streaming custom messages. Includes guidance for common examples like equality, throwing conditions, and Boolean checks."
+---
+
+# Assertions & Expectations
+
+This page thoroughly documents GoogleTest's core assertion macros (`ASSERT_*` and `EXPECT_*`), differentiates between fatal and non-fatal failures, explains custom predicate assertions, and demonstrates how to stream custom messages. It also provides practical guidance and common example patterns like equality checks, exception verification, and Boolean assertions.
+
+---
+
+## Understanding Assertions and Expectations
+
+GoogleTest offers two main types of assertion macros:
+
+- **ASSERT_*** macros cause a **fatal failure** — they abort the current function when the assertion fails.
+- **EXPECT_*** macros cause a **non-fatal failure** — they record the failure but let the function continue running.
+
+This distinction helps you control whether a failure should stop execution immediately or allow additional checks within the test.
+
+Both macros support streaming additional user messages via `<<` to provide context or debugging information.
+
+
+## Core Assertion Macros
+
+### Basic Boolean Checks
+
+- `EXPECT_TRUE(condition)` / `ASSERT_TRUE(condition)`
+- `EXPECT_FALSE(condition)` / `ASSERT_FALSE(condition)`
+
+These verify that the boolean condition is true or false, respectively. Using these ensures readable, straightforward tests of Boolean expressions.
+
+**Example:**
+```cpp
+EXPECT_TRUE(is_ready) << "Service should be ready";
+ASSERT_FALSE(has_error) << "No unexpected errors should occur";
+```
+
+### Equality and Relational Checks
+
+GoogleTest provides macros for binary comparisons, which print the values of both operands on failure:
+
+- `EXPECT_EQ(val1, val2)` / `ASSERT_EQ(val1, val2)`
+- `EXPECT_NE(val1, val2)` / `ASSERT_NE(val1, val2)`
+- `EXPECT_LT(val1, val2)` / `ASSERT_LT(val1, val2)`
+- `EXPECT_LE(val1, val2)` / `ASSERT_LE(val1, val2)`
+- `EXPECT_GT(val1, val2)` / `ASSERT_GT(val1, val2)`
+- `EXPECT_GE(val1, val2)` / `ASSERT_GE(val1, val2)`
+
+> **Tip**: Use `EXPECT_STREQ` and `EXPECT_STRNE` macros to compare C strings (null-terminated character pointers) by content, not by pointer address.
+
+**Example:**
+```cpp
+EXPECT_EQ(result, expected_result) << "The result did not match expected";
+ASSERT_NE(ptr, nullptr) << "Pointer must not be null";
+```
+
+### String Comparisons
+
+For C strings, use the following macros, which compare string content (even for wide strings):
+
+- `EXPECT_STREQ(str1, str2)` / `ASSERT_STREQ(str1, str2)` — Verify strings are equal.
+- `EXPECT_STRNE(str1, str2)` / `ASSERT_STRNE(str1, str2)` — Verify strings are not equal.
+- `EXPECT_STRCASEEQ(str1, str2)` / `ASSERT_STRCASEEQ(str1, str2)` — Equal ignoring case.
+- `EXPECT_STRCASENE(str1, str2)` / `ASSERT_STRCASENE(str1, str2)` — Not equal ignoring case.
+
+**Usage example:**
+```cpp
+EXPECT_STREQ(config_value.c_str(), "expected_value");
+ASSERT_STRCASEEQ(header_name, "Content-Type");
+```
+
+### Floating-point Comparisons
+
+Floating-point numbers are tricky to compare due to precision and rounding issues. GoogleTest offers:
+
+- `EXPECT_FLOAT_EQ(val1, val2)` / `ASSERT_FLOAT_EQ(val1, val2)`
+- `EXPECT_DOUBLE_EQ(val1, val2)` / `ASSERT_DOUBLE_EQ(val1, val2)`
+- `EXPECT_NEAR(val1, val2, abs_error)` / `ASSERT_NEAR(val1, val2, abs_error)`
+
+`EXPECT_FLOAT_EQ` and `EXPECT_DOUBLE_EQ` compare values within 4 ULPs (Units in the Last Place). Use `EXPECT_NEAR` when a custom error bound is needed.
+
+**Example:**
+```cpp
+EXPECT_DOUBLE_EQ(calculated_value, expected_value);
+ASSERT_NEAR(measurement, known_value, 0.001);
+```
+
+### Exception Assertions
+
+Control over verifying exception throwing is provided with:
+
+- `EXPECT_THROW(statement, exception_type)` / `ASSERT_THROW(statement, exception_type)` — Expect `statement` to throw the specified exception.
+- `EXPECT_ANY_THROW(statement)` / `ASSERT_ANY_THROW(statement)` — Expect `statement` to throw any exception.
+- `EXPECT_NO_THROW(statement)` / `ASSERT_NO_THROW(statement)` — Expect `statement` to not throw any exception.
+
+**Example:**
+```cpp
+ASSERT_THROW(ParseInput("bad data"), std::invalid_argument);
+EXPECT_NO_THROW(ProcessData(valid_data));
+```
+
+### Explicit Success and Failure
+
+- `SUCCEED()` — Manually generates a success message. Mostly for documentation or forcing success in certain branches.
+
+- `FAIL()` — Generates a fatal failure.
+
+- `ADD_FAILURE()` — Generates a non-fatal failure, allowing the test to continue.
+
+These macros are useful for explicit control over test outcomes when no logical condition drives success or failure.
+
+**Example:**
+```cpp
+if (state == ERROR) {
+  FAIL() << "Unexpected error state";
+} else {
+  SUCCEED();
+}
+```
+
+### Skipping Tests
+
+`GTEST_SKIP()` supports skipping tests during runtime, e.g., when preconditions are not met. It can be used within tests or their setup methods and supports streaming messages.
+
+**Example:**
+```cpp
+TEST(NetworkFeatureTest, RunOnlyIfNetworkAvailable) {
+  if (!NetworkAvailable()) {
+    GTEST_SKIP() << "Network not available";
+  }
+  EXPECT_TRUE(IsConnected());
+}
+```
+
+---
+
+## Fatal vs. Non-fatal Failures
+
+Understanding when to use fatal (`ASSERT_*`) versus non-fatal (`EXPECT_*`) is crucial:
+
+- **Fatal failures** abort execution of the current test function immediately, preventing potential crashes or undefined behavior downstream due to invalid state.
+- **Non-fatal failures** allow the test function to continue, providing more information about multiple failures in a single run.
+
+**Rule of thumb:** Use `ASSERT_*` when continuing the test after a failure could cause crashes or misleading results. Use `EXPECT_*` when it is safe to proceed and gather more test results.
+
+---
+
+## Custom Predicate Assertions
+
+Sometimes simple conditions are not expressive enough. GoogleTest provides predicate assertions for these cases.
+
+### Using `EXPECT_PREDn` / `ASSERT_PREDn`
+
+These macros accept user-defined predicates that return `bool` with 1 to 5 arguments.
+
+**Example:**
+```cpp
+bool MutuallyPrime(int m, int n) { ... }
+EXPECT_PRED2(MutuallyPrime, a, b);
+```
+
+On failure, the values of all arguments are printed to help diagnose.
+
+### Using `AssertionResult` in Predicates
+
+To get richer failure messages, define predicates returning `testing::AssertionResult`.
+
+**Example:**
+```cpp
+testing::AssertionResult IsEven(int n) {
+  if (n % 2 == 0)
+    return testing::AssertionSuccess() << n << " is even";
+  else
+    return testing::AssertionFailure() << n << " is odd";
+}
+...
+EXPECT_TRUE(IsEven(x));
+```
+
+This will print detailed messages on failure or success.
+
+### Using Predicate-Format Assertions
+
+`EXPECT_PRED_FORMATn` and `ASSERT_PRED_FORMATn` accept *predicate-formatters* — functions that produce custom failure messages and take string expressions along with argument values.
+
+**Example:**
+```cpp
+testing::AssertionResult AssertSumIsEven(const char* expr1, const char* expr2, int a, int b) {
+  if ((a + b) % 2 == 0) return testing::AssertionSuccess();
+  return testing::AssertionFailure() << expr1 << " + " << expr2 << " is not even.";
+}
+...
+EXPECT_PRED_FORMAT2(AssertSumIsEven, x, y);
+```
+
+This approach offers the highest control and clarity for predicate failures.
+
+---
+
+## Streaming Messages in Assertions
+
+All assertion macros support streaming custom messages using `<<`, allowing you to attach context or debug info dynamically at the failure site.
+
+**Example:**
+```cpp
+EXPECT_EQ(result, expected) << "Failed on input: " << input_data;
+ASSERT_TRUE(IsReady()) << "Resource was not ready";
+```
+
+This empowers meaningful diagnostics embedded directly within tests.
+
+---
+
+## Common Usage Scenarios
+
+### Equality Check
+
+```cpp
+TEST(MyTestSuite, CheckEquality) {
+  int computed = ComputeValue();
+  EXPECT_EQ(computed, 42) << "Computation result not as expected.";
+}
+```
+
+### Throwing Condition
+
+```cpp
+TEST(MyTestSuite, ExpectsException) {
+  EXPECT_THROW(ThrowIfInvalid(-1), std::invalid_argument);
+}
+```
+
+### Boolean Check with Predicate
+
+```cpp
+bool IsEven(int n) { return n % 2 == 0; }
+...
+EXPECT_PRED1(IsEven, value) << "Value is not even: " << value;
+```
+
+### Custom Predicate with AssertionResult
+
+```cpp
+testing::AssertionResult MyCheck(int x) {
+  if (x > 0)
+    return testing::AssertionSuccess() << "Positive";
+  else
+    return testing::AssertionFailure() << "Non-positive: " << x;
+}
+...
+EXPECT_TRUE(MyCheck(value));
+```
+
+---
+
+## Troubleshooting and Best Practices
+
+- Use `ASSERT_*` in void-returning functions only. Using fatal assertions inside non-void functions results in compile errors.
+- Avoid placing fatal assertions in constructors or destructors.
+- Use `EXPECT_NO_FATAL_FAILURE()` to verify that a statement does not produce fatal failures (useful for checking subroutine effects).
+- When multiple failures might happen, prefer non-fatal assertions (`EXPECT_*`) to catch all issues in one run.
+- Use `SCOPED_TRACE` to add contextual trace messages in nested subroutines.
+
+---
+
+## Related APIs and Further Exploration
+
+- See the [`AssertionResult`](#AssertionResult) class for custom predicate return types.
+- Explore the [`Expectations and Mocks`](../matchers-actions/) for richer expressive test constructs.
+- Consult the [Advanced Assertions and Custom Matchers](../guides/core-workflows/advanced-assertions-matchers.md) guide for matcher-based assertions.
+
+
+---
+
+# Detailed API Summary
+
+### Assertion Result States
+
+GoogleTest classifies assertion outcomes as:
+
+- **Success (`kSuccess`)**: Assertion succeeded.
+- **Non-fatal failure (`kNonFatalFailure`)**: Assertion failed but test continues.
+- **Fatal failure (`kFatalFailure`)**: Assertion failed, current function aborts.
+- **Skipped (`kSkip`)**: Assertion skipped (e.g., via `GTEST_SKIP()`).
+
+You can inspect these states in assertion result objects or test results when required.
+
+### Assertion Macros
+
+| Macro                  | Description                                  | Failure Type  | Function returns |
+|------------------------|----------------------------------------------|---------------|------------------|
+| `EXPECT_*`             | Continue test after failure                   | Non-fatal     | Yes              |
+| `ASSERT_*`             | Abort current test function on failure       | Fatal         | No (void only)    |
+| `ADD_FAILURE()`         | Non-fatal generic failure                     | Non-fatal     | Yes              |
+| `FAIL()`               | Fatal failure                                 | Fatal         | No (void only)    |
+| `SUCCEED()`            | Explicit success (rare usage)                  | Success       | Yes              |
+| `EXPECT_THROW`          | Throws expected exception                      | Non-fatal     | Yes              |
+| `ASSERT_THROW`          | Throws expected exception                      | Fatal         | No (void only)    |
+| `EXPECT_NO_THROW`       | Does not throw exception                       | Non-fatal     | Yes              |
+| `ASSERT_NO_THROW`       | Does not throw exception                       | Fatal         | No (void only)    |
+| `EXPECT_ANY_THROW`      | Throws any exception                           | Non-fatal     | Yes              |
+| `ASSERT_ANY_THROW`      | Throws any exception                           | Fatal         | No (void only)    |
+| `EXPECT_PRED*`          | Predicate returning bool                       | Non-fatal     | Yes              |
+| `ASSERT_PRED*`          | Predicate returning bool                       | Fatal         | No (void only)    |
+| `EXPECT_PRED_FORMAT*`   | Predicate formatter (rich failure messages)  | Non-fatal     | Yes              |
+| `ASSERT_PRED_FORMAT*`   | Predicate formatter (rich failure messages)  | Fatal         | No (void only)    |
+
+---
+
+## Additional Tips
+
+- Use `ASSERT_NO_FATAL_FAILURE(stmt);` to assert that `stmt` does not generate fatal failures during execution.
+- Use `HasFatalFailure()` and `HasNonfatalFailure()` inside tests to check test state when needed.
+- Streaming custom messages helps clarify the cause of failure immediately.
+- Use `GTEST_SKIP()` to conditionally skip tests with meaningful messages.
+- Learn to write custom predicate assertions with `AssertionResult` return type to produce actionable failure messages.
+
+---
+
+For the full list of assertion macros and more examples, consult the official [Assertions Reference](reference/assertions.md) and related guides.
+
+
+---
+
+<Source url="https://github.com/google/googletest" branch="main" paths={[{"path": "googletest/include/gtest/gtest.h", "range": "40-400"},{"path": "googletest/include/gtest/gtest-test-part.h", "range": "30-100"},{"path": "googletest/src/gtest.cc", "range": "800-1300"},{"path": "docs/reference/assertions.md", "range": "10-350"}]} />
