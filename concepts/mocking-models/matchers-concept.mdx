@@ -1,0 +1,247 @@
+---
+title: "Matchers and Flexible Assertions"
+description: "Learn the matcher concept at the heart of expressive assertions in GoogleTest and GoogleMock. Understand polymorphic and user-defined matchers, their role in test assertions, and how they power readable and robust tests."
+---
+
+# Matchers and Flexible Assertions
+
+Matchers are at the heart of GoogleTest and GoogleMock's power and expressiveness. They enable you to write assertions and mock expectations in a way that reads like natural language, and they produce clear, detailed failure messages that help diagnose issues quickly.
+
+This guide explores the matcher concept, details the variety of built-in matchers, explains polymorphic and user-defined matchers, and shows how matchers underpin flexible assertions in your tests.
+
+---
+
+## What is a Matcher?
+
+A **matcher** is a predicate that checks whether a single value meets specific criteria. In GoogleTest and GoogleMock:
+
+- You use matchers to verify actual values against expected conditions.
+- Matchers can be simple (e.g., equality) or complex compositions.
+- They are used inside assertions like `EXPECT_THAT(value, matcher)` and in mock expectations via `EXPECT_CALL(mock, Method(matcher))`.
+
+### Why Matchers? The User Perspective
+
+Imagine you want to verify that a container holds specific elements, or that a calculated value lies within a given range. Writing verbose conditional code and crafting failure messages manually is tedious and error prone.
+
+Matchers let you express such conditions clearly and declaratively. Failure messages are automatically generated with details about what was expected and what was actually received.
+
+For example:
+
+```cpp
+EXPECT_THAT(my_value, Ge(5));  // expects my_value >= 5
+EXPECT_THAT(my_string, StartsWith("Hello"));  // expects my_string starts with "Hello"
+EXPECT_CALL(my_mock, Foo(Contains("needle")));  // expects Foo called with any string containing "needle"
+```
+
+If any of these fail, the test framework will provide a detailed message describing the failure explicitly, rather than just a generic "assertion failed."
+
+---
+
+## Using Matchers in Assertions
+
+GoogleTest offers two macros for matcher-based assertions:
+
+| Macro                         | Description                                     |
+|-------------------------------|------------------------------------------------|
+| `EXPECT_THAT(value, matcher)` | Non-fatal assertion that `value` satisfies `matcher` |
+| `ASSERT_THAT(value, matcher)` | Fatal assertion that `value` satisfies `matcher` |
+
+Matchers enable expressive, readable tests that go beyond simple equality checks.
+
+### Example:
+
+```cpp
+#include <gmock/gmock.h>
+using ::testing::StartsWith;
+using ::testing::Ge;
+
+TEST(StringTest, StartsWithHello) {
+  std::string s = "Hello, world!";
+  EXPECT_THAT(s, StartsWith("Hello"));  // Passes
+}
+
+TEST(IntegerTest, AtLeastFive) {
+  int number = 3;
+  EXPECT_THAT(number, Ge(5));  // Fails, will print detailed failure
+}
+```
+
+---
+
+## Core Matchers Overview
+
+Matchers are categorized by their purpose. Here are key groups:
+
+### Wildcard Matchers
+- `_` : Matches any value of the correct type.
+- `A<T>()` or `An<T>()` : Matches any value of the given type.
+
+### Generic Comparison Matchers
+These behave like rich comparison operators:
+
+| Matcher       | Meaning                   |
+|---------------|---------------------------|
+| `Eq(v)`       | equals `v`                |
+| `Ne(v)`       | not equals `v`            |
+| `Lt(v)`       | less than `v`             |
+| `Le(v)`       | less or equal to `v`      |
+| `Gt(v)`       | greater than `v`          |
+| `Ge(v)`       | greater or equal to `v`   |
+| `DistanceFrom(t, m)` | distance from target `t` matches `m` |
+| `IsTrue()` / `IsFalse()` | evaluates to true/false |
+| `IsNull()` / `NotNull()` | matches null / non-null pointers |
+| `Optional(m)` | matches `std::optional` containing value matching `m` |
+| `VariantWith<T>(m)` | matches `std::variant` with alternative `T` matching `m` |
+| `Ref(variable)` | matches arguments that refer to `variable` |
+
+### Floating-Point Matchers
+- `DoubleEq()`, `FloatEq()`: approximate equality with ULP-based tolerance
+- `NanSensitiveDoubleEq()`, `NanSensitiveFloatEq()`: treat NaNs as equal
+- `DoubleNear()`, `FloatNear()`: approximate equality with explicit error bound
+
+### String Matchers
+Designed for C strings and `std::string`, including wide strings.
+
+| Matcher           | Description                             |
+|-------------------|---------------------------------------|
+| `StrEq(str)`      | equality string match                  |
+| `StrNe(str)`      | inequality string match                |
+| `StrCaseEq(str)`  | case-insensitive equality              |
+| `StrCaseNe(str)`  | case-insensitive inequality            |
+| `StartsWith(prefix)` | string starts with prefix             |
+| `EndsWith(suffix)` | string ends with suffix                |
+| `HasSubstr(substring)` | string contains substring            |
+| `MatchesRegex(regex)` | string fully matches regex            |
+| `ContainsRegex(regex)` | string contains regex                 |
+| `WhenBase64Unescaped(m)` | base64 unescaped string matches `m` |
+| `IsEmpty()`       | string is empty                       |
+
+### Container Matchers
+- `Contains(e)`: container contains an element matching `e`
+- `ElementsAre(...)`: container elements match exactly in order
+- `UnorderedElementsAre(...)`: match container ignoring element order
+- `SizeIs(m)`: container size matches matcher
+- `Each(m)`: all elements match matcher
+- `IsSubsetOf(...)` / `IsSupersetOf(...)`: partial matching of elements
+- `Pointwise(m, container)`: element-wise matching pairs
+
+### Member and Tuple Matchers
+
+- `Field(&Class::member, m)`: matches if field matches matcher
+- `Property(&Class::method, m)`: matches if method() returns a value matching
+- `Pair(m1, m2)`: matches `std::pair` where first & second match respectively
+- `FieldsAre(m1, m2, ...)`: matches aggregate or tuple types matching each field
+
+### Predicate and Functional Matchers
+
+- `Truly(predicate)`: wraps an arbitrary unary predicate function or functor
+- `MatcherCast<T>(m)`: safely converts or casts a matcher to another type
+- `SafeMatcherCast<T>(m)`: safer version that ensures type constraints
+
+---
+
+## Polymorphic vs Monomorphic Matchers
+
+- **Monomorphic Matcher:** Matches a single specific type `T`. Implements the interface for `Matcher<T>`. Suitable when type is known.
+- **Polymorphic Matcher:** Factory-like object that can be converted into `Matcher<T>` for multiple types `T` as required. Enables matchers like `Eq(5)` to be used with `int`, `double`, etc.
+
+GoogleTest supports defining both styles. The `MATCHER` macro creates polymorphic matchers automatically.
+
+Example polymorphic matcher for even numbers:
+
+```cpp
+MATCHER(IsEven, "") { return (arg % 2) == 0; }
+EXPECT_THAT(4, IsEven());
+EXPECT_THAT(5, Not(IsEven()));
+```
+
+---
+
+## Writing Custom Matchers
+
+The `MATCHER` family of macros lets you define concise, reusable matchers:
+
+### Basic Example
+
+```cpp
+MATCHER(IsDivisibleBy7, "") {
+  return (arg % 7) == 0;
+}
+EXPECT_THAT(n, IsDivisibleBy7());
+```
+
+### Parameterized Matchers
+
+```cpp
+MATCHER_P(HasAbsoluteValue, value, "") {
+  return abs(arg) == value;
+}
+EXPECT_THAT(x, HasAbsoluteValue(5));
+```
+
+You can define multi-parameter matchers with `MATCHER_P2`, ..., `MATCHER_P10`.
+
+### Implementing Rich Descriptions and Explanations
+
+- Use `DescribeTo()` and `DescribeNegationTo()` to provide human-friendly matcher descriptions.
+- Stream additional failure information to `*result_listener` for detailed explanations.
+
+### Defining Matcher Classes
+
+You can implement the matcher interface manually by defining a class with:
+
+- `bool MatchAndExplain(const T& value, MatchResultListener* listener) const`
+- `void DescribeTo(std::ostream* os) const`
+- `void DescribeNegationTo(std::ostream* os) const`
+
+Wrap this in a factory function returning `Matcher<T>`.
+
+### Composite Matchers
+
+You can implement matchers that take other matchers as parameters, combining conditions with logical AND (`AllOf`), OR (`AnyOf`), and NOT (`Not`).
+
+Example:
+
+```cpp
+EXPECT_THAT(value, AllOf(Gt(5), Lt(10)));
+```
+
+---
+
+## Tips and Best Practices
+
+- **Prefer `ON_CALL` over `EXPECT_CALL`** when you want to define default mock behaviors without enforcing strict expectations.
+- Use **matcher variables** to reuse complex matchers and improve test readability.
+- Keep matchers **pure and side-effect free**: matchers must not modify program state or depend on it.
+- Use `SafeMatcherCast` to convert matchers safely when dealing with polymorphic types.
+- Use `Matcher`-based assertions like `EXPECT_THAT` for better error messages, especially on complex data.
+- Use member matchers like `Field` and `Property` to verify internal fields or properties in objects.
+
+---
+
+## Troubleshooting Common Matcher Issues
+
+- **Unexpected matches:** Beware implicit conversions in `EXPECT_THAT(value, expected)` that may compile but not behave as intended; use explicit matchers like `EXPECT_THAT(value, Eq(expected))`.
+- **Compilation errors with complex types:** Wrap complex return types or parameters containing commas in parentheses or use typedefs/aliases.
+- **Matcher not describing properly:** Implement both `DescribeTo` and `DescribeNegationTo` for helpful failure messages.
+
+---
+
+## Summary
+
+Matchers are foundational to the flexibility and clarity of GoogleTest and GoogleMock assertions, letting you write expressive, maintainable, and informative tests.
+
+Next steps include exploring more advanced matchers such as parameterized/typed tests, and learning to define custom actions and behaviors in mocks to unlock the full power of the framework.
+
+---
+
+## Additional Resources
+
+- [Assertions Reference](reference/assertions.md#EXPECT_THAT)
+- [Matchers Reference](reference/matchers.md)
+- [gMock Cookbook: Writing New Matchers Quickly](gmock_cook_book.md#WritingNewMatchersQuickly)
+- [Mocking Reference](reference/mocking.md)
+- [GoogleTest Primer: Essential Features](guides/getting-started/primer-essential-features.md)
+- [Core Concepts & Terminology](overview/system-architecture-concepts/core-concepts-terminology.md)
+
+Explore these to deepen your mastery of matchers and flexible assertions in GoogleTest and GoogleMock.
