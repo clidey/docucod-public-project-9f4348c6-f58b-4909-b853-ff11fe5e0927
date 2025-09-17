@@ -1,0 +1,288 @@
+---
+title: "Breaking Changes"
+description: "A consolidated page listing all changes that might break existing builds or behaviors. Each entry details what changed, which users are affected, and recommended remediations."
+---
+
+# Breaking Changes
+
+This page consolidates all changes in GoogleTest and GoogleMock that might affect existing builds or test behaviors. Each entry clearly describes the change, the users impacted, and recommended steps to adapt.
+
+---
+
+## 1. Enforced C++17 Minimum
+
+**What Changed:**
+GoogleTest and GoogleMock now require a C++17-compliant compiler and standard library. Earlier standards such as C++11 or C++14 are no longer supported.
+
+**Impacted Users:**
+All users building GoogleTest or GoogleMock codebases with compilers set to earlier C++ standards.
+
+**Recommended Remediation:**
+
+- Update your build environment to use C++17 or later. 
+- Ensure your compiler and standard library fully support C++17 features.
+
+See the [System Requirements & Supported Platforms](getting-started/prerequisites-and-installation/system-requirements) page for detailed supported compilers and flags.
+
+---
+
+## 2. Enhanced Macro and Method Naming Handling
+
+**What Changed:**
+GoogleMock macros such as `MOCK_METHOD`, `EXPECT_CALL`, and `ON_CALL` now tolerate method names that may conflict with macros defined elsewhere (for example, on Windows where Win32 APIs define macros like `Method`).
+
+**Impacted Users:**
+Users mocking codebases that include third-party headers or platform APIs defining method name macros.
+
+**Recommended Remediation:**
+
+- No code change needed unless you previously used workarounds for macro conflicts.
+- Simply use `MOCK_METHOD` and expectation macros as usual; they handle macro expansions gracefully.
+
+Reference: see tests in `googlemock/test/gmock-spec-builders_test.cc` demonstrating this behavior.
+
+---
+
+## 3. Strict Syntax Enforcement for `EXPECT_CALL` and `ON_CALL`
+
+**What Changed:**
+GoogleMock now enforces the following rules more strictly, resulting in compile-time or runtime errors if violated:
+
+- `With()` clause may appear at most once and must be the first clause in both `EXPECT_CALL` and `ON_CALL`.
+- `Times()` may appear at most once and must appear before sequence-related clauses.
+- `WillOnce()`, `WillRepeatedly()`, and `WillByDefault()` clauses have ordering requirements.
+- Multiple usages of these clauses violating order or count limits produce fatal failures or nonfatal failures depending on context.
+
+**Impacted Users:**
+Users with existing mock expectations or default action specifications that do not follow prescribed macro clause order.
+
+**Recommended Remediation:**
+
+- Review your `EXPECT_CALL` and `ON_CALL` clauses to ensure compliance with GoogleMock's call ordering rules.
+- Place `.With()` first, followed by `.Times()`, then sequences, `.After()`, `.WillOnce()`, `.WillRepeatedly()`, and finally `.RetiresOnSaturation()`.
+
+Example correct order:
+
+```cpp
+EXPECT_CALL(mock, Method(args))
+    .With(multi_argument_matcher)  // at most once, first
+    .Times(AnyNumber())            // at most once
+    .InSequence(seq1, seq2)        // zero or more
+    .After(other_expectation)      // zero or more
+    .WillOnce(Return(value))       // zero or more
+    .WillRepeatedly(Return(value))// at most once
+    .RetiresOnSaturation();        // at most once, last
+```
+
+---
+
+## 4. Improved Handling for Incomplete and Non-Default-Constructible Types in Mocks
+
+**What Changed:**
+
+- GoogleMock allows mocking methods with arguments that are incomplete types, as long as a printer function `PrintTo(const Type&, std::ostream*)` is defined in the same namespace.
+- Methods returning non-default-constructible types without specifying a return action now cause compile or runtime errors instead of silent failures.
+
+**Impacted Users:**
+
+- Users mocking interfaces involving incomplete types or non-default-constructible return types.
+
+**Recommended Remediation:**
+
+- Define a `PrintTo()` override associated with incomplete types to enable use in mocks.
+- Specify explicit `WillOnce()` or `WillRepeatedly()` return actions for non-default-constructible return types.
+
+Example for incomplete type printer:
+
+```cpp
+void PrintTo(const IncompleteType& x, std::ostream* os) {
+  *os << "incomplete";
+}
+```
+
+---
+
+## 5. Reverse Matching Order of Expectations
+
+**What Changed:**
+GoogleMock matches mock method calls against expectations in **reverse order** they are declared (newest first). This allows specifying general behavior early (e.g., constructor or test fixture setup) and more specific rules later in the test, effectively overriding previous ones.
+
+**Impacted Users:**
+- Tests relying on ordering of expectations for matching (older expectations may be shadowed).
+
+**Recommended Remediation:**
+
+- When setting multiple expectations for the same method, place the most general `EXPECT_CALL()` earlier.
+- Place more specific expectations after the general one to override them for matching.
+
+Example:
+
+```cpp
+EXPECT_CALL(mock, Foo(_));        // General case
+EXPECT_CALL(mock, Foo(5));        // More specific case, placed later
+```
+
+---
+
+## 6. Strict Enforcement of Default Action Clauses
+
+**What Changed:**
+
+- Each `ON_CALL` must contain exactly one `.WillByDefault()` clause.
+- Multiple `.WillByDefault()` in the same `ON_CALL` is a failure.
+- An `ON_CALL` without `.WillByDefault()` causes fatal failures upon invocation.
+
+**Impacted Users:**
+- Users providing incomplete `ON_CALL` specifications.
+
+**Recommended Remediation:**
+- Always include exactly one `.WillByDefault(action)` in each `ON_CALL`.
+
+Example:
+
+```cpp
+ON_CALL(mock, Method(args)).WillByDefault(Return(value));
+```
+
+---
+
+## 7. Virtual Destructors Required for Mocks
+
+**What Changed:**
+
+- When mocking classes, the base class **must** have a virtual destructor.
+- If omitted, deleting derived mocks through base pointers may cause undefined behavior including memory leaks and incomplete destruction.
+
+**Impacted Users:**
+- Users mocking abstract interfaces or classes without virtual destructors.
+
+**Recommended Remediation:**
+- Add `virtual ~Base()` declarations to all base classes used with mocks.
+
+Example:
+
+```cpp
+class Interface {
+ public:
+  virtual ~Interface() {}
+  virtual void DoSomething() = 0;
+};
+```
+
+---
+
+## 8. Prohibition of Fatal Assertions in Non-void Functions and Constructors/Destructors
+
+**What Changed:**
+
+- GoogleTest now forbids using fatal assertions (`ASSERT_*`, `FAIL()`) in functions that do not return void.
+- Fatal assertions are also disallowed inside constructors and destructors.
+
+**Impacted Users:**
+- Tests or helper functions violating these constraints.
+
+**Recommended Remediation:**
+- Use non-fatal assertions (`EXPECT_*`, `ADD_FAILURE`) in non-void functions.
+- Move fatal assertions to `SetUp()` or `TearDown()` methods rather than constructors or destructors.
+
+Reference: see [Assertion Placement](advanced.md#assertion-placement).
+
+---
+
+## 9. Death Test Suite Naming Convention
+
+**What Changed:**
+
+- Test suites containing death tests are strongly recommended to be named with a `DeathTest` suffix.
+- This ensures correct ordering and thread safety considerations during test execution.
+
+**Impacted Users:**
+- Users writing death tests but not naming the test suites with `DeathTest` suffix.
+
+**Recommended Remediation:**
+
+- Rename test suites to have `*DeathTest` as suffix when including death tests.
+- Alternatively, use fixture aliases to separate death tests from normal tests.
+
+Example:
+
+```cpp
+class FooTest : public testing::Test {};
+using FooDeathTest = FooTest;
+
+TEST_F(FooDeathTest, DiesWhen...) {
+  ASSERT_DEATH(FunctionCall(), "Error message");
+}
+```
+
+See [Death Tests](advanced.md#death-tests) for more details.
+
+---
+
+## 10. Changed Default Death Test Style
+
+**What Changed:**
+- The default value of the death test style flag `--gtest_death_test_style` has shifted towards "threadsafe" from previously "fast".
+- Threadsafe style improves robustness by avoiding fork-related threading issues but may be slower.
+
+**Impacted Users:**
+- Users running death tests may experience different behavior or test execution time.
+
+**Recommended Remediation:**
+- Set `GTEST_FLAG_SET(death_test_style, "fast")` explicitly if the older behavior is needed.
+- Adapt test code to be thread-safe as recommended.
+
+---
+
+## 11. More Strict Evaluation of `EXPECT_PRED*` Overloads
+
+**What Changed:**
+- `EXPECT_PRED*` macros now require exact matching of predicate signatures. Users must explicitly cast overloaded function pointers or provide template arguments with parentheses to disambiguate.
+
+**Impacted Users:**
+- Tests using overloaded predicate functions without explicit disambiguation may fail to compile.
+
+**Recommended Remediation:**
+- Use explicit casts or parenthesis to specify the version of overloaded predicate or template.
+
+Example:
+
+```cpp
+EXPECT_PRED1(static_cast<bool(*)(int)>(IsPositive), 5);
+EXPECT_PRED2((MyPredicate<int,int>), a, b);
+```
+
+---
+
+## 12. Remove Deprecated `MOCK_METHODn` Macros
+
+**What Changed:**
+- The old `MOCK_METHODn` macros have been deprecated in favor of the generic `MOCK_METHOD`.
+
+**Impacted Users:**
+- Legacy codebases using `MOCK_METHODn`, `MOCK_CONST_METHODn`, or variants.
+
+**Recommended Remediation:**
+- Migrate to `MOCK_METHOD(return_type, method_name, (args), (specs));`.
+
+See [Mocking Reference - MOCK_METHOD](reference/mocking.md#MOCK_METHOD) for migration.
+
+---
+
+## Summary
+
+This page covers critical breaking changes for GoogleTest and GoogleMock users, focusing on modern C++ requirements, API usage rules, mock behavioral contracts, and recommended migration steps to avoid build or runtime issues.
+
+
+---
+
+*Note:* For detailed examples, best practices, and extended explanations, consult the following documentation references:
+
+- [GoogleTest Primer](guides/getting-started/primer-essential-features.md)
+- [Advanced GoogleTest Topics](docs/advanced.md)
+- [Mocking Reference](docs/reference/mocking.md)
+- [gMock Cookbook](docs/gmock_cook_book.md)
+- [Assertions Reference](docs/reference/assertions.md)
+- [Death Tests](docs/advanced.md#death-tests)
+
+---
