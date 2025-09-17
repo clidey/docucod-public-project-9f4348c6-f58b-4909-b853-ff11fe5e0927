@@ -1,0 +1,170 @@
+---
+title: "Official Documentation and Learning Resources"
+description: "Provides links to core documentation, external guides, and reference materials, plus recommendations for learning best practices and exploring advanced features."
+---
+
+# Official Documentation and Learning Resources
+
+This page serves as your gateway to core GoogleTest documentation, key external guides, and essential reference materials. It also provides curated recommendations to help you efficiently learn best practices and explore advanced features.
+
+---
+
+## Core Documentation
+
+### 1. GoogleTest Primer
+
+Start here if you are new to GoogleTest. The primer explains fundamental concepts such as writing basic tests, using assertions, creating test fixtures, running your tests, and best practices.
+
+**Key highlights:**
+- Simple `TEST` and `TEST_F` macros for defining tests
+- Assertions overview and usage patterns
+- Writing and using test fixtures for shared setup
+- How `RUN_ALL_TESTS()` drives test execution
+
+Find it here: [GoogleTest Primer](primer.md)
+
+### 2. Testing Reference
+
+This reference details the core APIs you'll use daily to write tests, including:
+- Test macros like `TEST`, `TEST_F`, and `TEST_P` for value-parameterized tests
+- Test registration, filtering, and execution
+- Classes for inspecting test and suite information at runtime
+- Event listeners to extend test reporting and behavior
+
+A must-read for hands-on test development: [Testing Reference](reference/testing.md)
+
+### 3. Assertions Reference
+
+GoogleTest offers a comprehensive set of assertion macros to verify code behavior:
+- Boolean assertions (`EXPECT_TRUE`, `ASSERT_FALSE`)
+- Comparison assertions (`EXPECT_EQ`, `ASSERT_NE`, etc.)
+- String and floating-point comparisons
+- Exception and death test assertions
+- Predicate assertions and custom matchers
+
+Each macro includes fatal and non-fatal variants, enabling finely tuned test flow control.
+
+Explore details at: [Assertions Reference](reference/assertions.md)
+
+### 4. Advanced GoogleTest Topics
+
+After mastering the basics, deepen your expertise with: 
+- Using advanced assertions to write clearer failure messages
+- Writing custom predicate-format assertions
+- Managing fixture setup at suite and program scope
+- Writing and controlling death and exception tests
+- Leveraging event listeners for custom test output or validations
+
+Enhance your testing skills here: [Advanced GoogleTest Topics](advanced.md)
+
+### 5. Mocking and Matcher References
+
+For tests involving mock objects and flexible assertions, consult:
+- Mocking Reference: Defines mock classes and methods, expectations, and behaviors
+- Matchers Reference: A rich library of matchers to verify function arguments and outcomes
+- Actions Reference: For custom and default behaviors in mocks
+
+Explore core mocking capabilities at:
+- [Mocking Reference](reference/mocking.md)
+- [Matchers Reference](reference/matchers-actions/core-matchers.md)
+- [Actions Reference](reference/matchers-actions/actions.md)
+
+### 6. GoogleTest Samples
+
+Practical, well-commented example tests demonstrating:
+- Basic test writing
+- Test fixtures
+- Typed and parameterized tests
+- Mock usage and expectations
+- Event listener APIs
+
+Review them here for hands-on learning: [Googletest Samples](samples.md)
+
+
+---
+
+## External and Supplementary Resources
+
+### Official GitHub Repository
+
+Explore the full source, issues, and the latest documentation updates:
+- [GoogleTest GitHub Repository](https://github.com/google/googletest)
+
+### CMake Integration
+
+Detailed build instructions using CMake for various platforms and setups, perfect for integrating GoogleTest into existing build systems:
+- [googletest/README.md](https://github.com/google/googletest/blob/main/googletest/README.md)
+
+
+---
+
+## How to Learn Best Practices and Explore Advanced Features
+
+### Recommended Learning Path
+
+1. **Beginner:** Start with the Primer to build a solid foundation.
+2. **Core Workflows:** Move to guides such as Core Testing Workflows, Parameterized and Typed Tests, and Mock Behavior to understand effective test structuring.
+3. **Advanced Techniques:** Progress to Advanced GoogleTest Topics for intricate test management, death tests, and customizing assertions.
+4. **Performance & Optimization:** Study Best Practices and Performance Optimization guides to write fast and stable tests.
+5. **Extend the Framework:** Learn about writing custom matchers and actions through Extending GoogleTest and GoogleMock.
+
+### Practical Tips
+
+- Regularly consult the Assertions Reference while writing tests to leverage the full power of GoogleTest.
+- Explore the Sample tests for idiomatic usage and patterns.
+- Use the Testing Reference as your go-to API guide.
+- Keep an eye on the FAQ for common troubleshooting and advice.
+
+### Communities & Support
+
+- Visit the GoogleTest issues page on GitHub for community discussion.
+- Join related forums or mailing lists to ask questions and share experiences.
+
+
+---
+
+## Summary
+
+This page connects you to all essential documentation and resources needed to confidently use GoogleTest and GoogleMock.
+
+Use it to:
+- Start from the basic Primer and progress through core and advanced guides
+- Access detailed API references for test writing, assertions, mocks, and matchers
+- Explore practical sample tests for learning by example
+- Find build and integration instructions through the official repo
+- Plan your learning journey to master GoogleTest
+
+
+---
+
+## Related Documentation
+
+- [GoogleTest Primer](primer.md)
+- [Testing Reference](reference/testing.md)
+- [Assertions Reference](reference/assertions.md)
+- [Advanced GoogleTest Topics](advanced.md)
+- [Mocking Reference](reference/mocking.md)
+- [Googletest Samples](samples.md)
+
+
+---
+
+## Next Steps
+
+- Visit the [GoogleTest Primer](primer.md) to begin writing simple tests
+- Read the [Core Testing Workflows guides](guides/core-workflows) for better test organization
+- Explore the [Mock Behavior and Expectations guide](guides/core-workflows/mock-behavior-expectations) to harness mocks
+- Use the [Advanced Topics](advanced.md) for fine-grained testing control
+- Check [Troubleshooting guides](getting-started/troubleshooting-and-validation) if setup issues arise
+
+---
+
+## Quick Links
+
+- [GoogleTest GitHub Repository](https://github.com/google/googletest)
+- [GoogleTest Primer](primer.md)
+- [Testing Reference](reference/testing.md)
+- [Assertions Reference](reference/assertions.md)
+- [Advanced Topics](advanced.md)
+- [Mocking Reference](reference/mocking.md)
+- [Googletest Samples](samples.md)

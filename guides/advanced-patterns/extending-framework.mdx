@@ -1,0 +1,353 @@
+---
+title: "Extending GoogleTest and GoogleMock"
+description: "Guides advanced users through creating custom assertions, actions, or matchers, and extending the framework’s capabilities for unique domain-specific needs."
+---
+
+# Extending GoogleTest and GoogleMock
+
+This guide helps advanced users create custom assertions, actions, or matchers, and extend GoogleTest and GoogleMock beyond their built-in capabilities to suit unique domain-specific requirements.
+
+---
+
+## 1. Introduction to Extension Points
+
+GoogleTest and GoogleMock provide extensive facilities for writing unit tests and mocks. However, your testing needs may require custom behavior or match conditions that the default set does not cover. This page shows you how to extend the framework in practical and structured ways:
+
+- Define custom matchers and parameterized matchers
+- Create new actions for mock methods
+- Write custom cardinalities for specifying call frequencies
+- Delegate to fakes, real objects, or parent classes
+- Control the lifecycle and ordering of expectations more precisely
+
+---
+
+## 2. Creating Custom Matchers
+
+Matchers specify the criteria against which mock method arguments or assertion values are verified. The built-in matchers cover many common cases, but custom matchers unlock flexible validation for complex conditions.
+
+### 2.1 Basic Matchers with `MATCHER`
+
+Use the `MATCHER` macro for simple, boolean predicate matchers:
+
+```cpp
+MATCHER(IsDivisibleBy7, "") {
+  return (arg % 7) == 0;
+}
+```
+
+Use in expectations:
+
+```cpp
+EXPECT_CALL(mock_obj, SomeMethod(IsDivisibleBy7()));
+EXPECT_THAT(value, IsDivisibleBy7());
+```
+
+**Tip:** Provide meaningful failure descriptions and leverage streaming to add contextual details to test failures.
+
+### 2.2 Parameterized Matchers with `MATCHER_P` and friends
+
+For matchers with parameters, use `MATCHER_P`, `MATCHER_P2`, etc. up to 10 parameters:
+
+```cpp
+MATCHER_P(HasAbsoluteValue, value, "") {
+  return abs(arg) == value;
+}
+...
+EXPECT_THAT(Blah("a"), HasAbsoluteValue(n));
+```
+
+You can provide descriptive strings referencing parameters to improve diagnostics.
+
+### 2.3 Defining Full Matcher Classes
+
+For more control, implement a matcher class with `MatchAndExplain()`, `DescribeTo()`, and `DescribeNegationTo()` methods:
+
+```cpp
+class BarPlusBazEqMatcher {
+ public:
+  using is_gtest_matcher = void;
+
+  explicit BarPlusBazEqMatcher(int expected_sum) : expected_sum_(expected_sum) {}
+
+  bool MatchAndExplain(const Foo& foo, std::ostream* os) const {
+    return (foo.bar() + foo.baz()) == expected_sum_;
+  }
+
+  void DescribeTo(std::ostream* os) const {
+    *os << "bar() + baz() equals " << expected_sum_;
+  }
+
+  void DescribeNegationTo(std::ostream* os) const {
+    *os << "bar() + baz() does not equal " << expected_sum_;
+  }
+
+ private:
+  const int expected_sum_;
+};
+
+::testing::Matcher<const Foo&> BarPlusBazEq(int expected_sum) {
+  return BarPlusBazEqMatcher(expected_sum);
+}
+```
+
+---
+
+## 3. Writing New Actions
+
+Actions define what a mock method does when called: e.g., returning a value, invoking a callback, modifying arguments.
+
+### 3.1 Lambda and Functor Actions
+
+Easily define a mock behavior by supplying a lambda or callable object:
+
+```cpp
+EXPECT_CALL(mock_obj, Foo(_))
+    .WillOnce([](int arg) { return arg * 7; });
+```
+
+You can ignore arguments as well by defining a zero-argument callable.
+
+### 3.2 Defining Actions with `ACTION` Macros
+
+Legacy support via macros allows concise, reusable actions:
+
+```cpp
+ACTION(IncrementArg1) { return ++(*arg1); }
+EXPECT_CALL(mock, Foo(_)).WillOnce(IncrementArg1());
+```
+
+Parameterized actions with `ACTION_P`, `ACTION_P2`, etc.: 
+
+```cpp
+ACTION_P(Add, n) { return arg0 + n; }
+EXPECT_CALL(mock, Foo(_)).WillOnce(Add(5));
+```
+
+### 3.3 Polymorphic Actions
+
+Write template-based action implementations usable with various signatures:
+
+```cpp
+class ReturnSecondArgumentAction {
+ public:
+  template <typename Result, typename ArgumentTuple>
+  Result Perform(const ArgumentTuple& args) const {
+    return std::get<1>(args);
+  }
+};
+
+auto ReturnSecondArgument() {
+  return testing::MakePolymorphicAction(ReturnSecondArgumentAction());
+}
+```
+
+Use as:
+
+```cpp
+EXPECT_CALL(mock, Method).WillOnce(ReturnSecondArgument());
+```
+
+---
+
+## 4. Custom Cardinalities
+
+A cardinality controls how many times a mock method is expected to be called. You can implement your own cardinalities by subclassing `CardinalityInterface`.
+
+Example: Even number of calls cardinality:
+
+```cpp
+class EvenNumberCardinality : public testing::CardinalityInterface {
+ public:
+  bool IsSatisfiedByCallCount(int call_count) const override {
+    return call_count % 2 == 0;
+  }
+
+  bool IsSaturatedByCallCount(int call_count) const override {
+    return false;
+  }
+
+  void DescribeTo(std::ostream* os) const override {
+    *os << "called even number of times";
+  }
+};
+
+testing::Cardinality EvenNumber() {
+  return testing::MakeCardinality(new EvenNumberCardinality);
+}
+
+EXPECT_CALL(mock, Foo()).Times(EvenNumber());
+```
+
+---
+
+## 5. Delegating Mock Behavior
+
+Sometimes you want to forward a mock's behavior to an existing implementation.
+
+### 5.1 Delegating to a Fake or Real Object
+
+You can use `ON_CALL` to delegate the action to a real or fake class:
+
+```cpp
+class MockFoo : public Foo {
+ public:
+  MockFoo() {
+    ON_CALL(*this, DoThis).WillByDefault([this](int n) {
+      return real_.DoThis(n);
+    });
+  }
+
+  MOCK_METHOD(int, DoThis, (int n), (override));
+
+ private:
+  Foo real_;
+};
+```
+
+---
+
+## 6. Mocking Techniques and Best Practices
+
+### 6.1 Mocking Overloaded Methods and Constness
+
+Use `Const()` wrapper to disambiguate calls to const overloaded methods.
+
+Example:
+
+```cpp
+EXPECT_CALL(Const(mock), GetBar()).WillOnce(ReturnRef(bar));
+```
+
+### 6.2 Handling Move-Only Types
+
+Use the new `MOCK_METHOD` syntax directly with move-only parameters and return types.
+
+For example:
+
+```cpp
+MOCK_METHOD(std::unique_ptr<Buzz>, MakeBuzz, (StringPiece text), (override));
+```
+
+Avoid returning `Return(std::move(...))` in repeated calls as the value may be moved from.
+Use lambdas to create fresh values on each call.
+
+### 6.3 Using `NiceMock` and `StrictMock`
+
+- **`NiceMock<T>`** suppresses warnings on uninteresting calls.
+- **`StrictMock<T>`** treats uninteresting calls as test failures.
+
+Use them cautiously, and understand how they affect the test output.
+
+### 6.4 Ordering and Partial Ordering of Calls
+
+Use `InSequence` and `After` clauses to express strict or partial call order dependencies.
+
+```cpp
+{
+  InSequence seq;
+  EXPECT_CALL(mock, Foo(1));
+  EXPECT_CALL(mock, Foo(2));
+}
+```
+
+You can create multiple `Sequence` objects and assign calls to them for partial orders.
+
+### 6.5 Use `RetiresOnSaturation` to avoid sticky expectations when multiple calls expected with varying behavior:
+
+```cpp
+EXPECT_CALL(mock, Foo()).WillOnce(Return(1)).RetiresOnSaturation();
+EXPECT_CALL(mock, Foo()).WillOnce(Return(2)).RetiresOnSaturation();
+```
+
+---
+
+## 7. Verification and Lifecycle Controls
+
+- Use the destructor to verify expectations automatically.
+- You can explicitly verify and clear expectations using:
+
+```cpp
+Mock::VerifyAndClearExpectations(&mock_obj);
+Mock::VerifyAndClear(&mock_obj);
+```
+
+- Use `Mock::AllowLeak(&mock_obj);` to mark that gMock should not verify the object on destruction (use cautiously).
+
+---
+
+## 8. Controlling Verbosity and Debug Output
+
+- Use `--gmock_verbose=LEVEL` to set verbosity levels:
+  - `info`: verbose logging with stacks and match details
+  - `warning`: default, warnings and errors
+  - `error`: errors only
+
+- Adjust `--gtest_stack_trace_depth` to reduce stack trace noise.
+
+- Enable detailed mock tracing to debug failed expectations and unexpected calls.
+
+---
+
+## 9. Comprehensive Example of Custom Matcher and Action
+
+```cpp
+// Custom matcher checking if a number is prime
+MATCHER(IsPrime, "checks if number is prime") {
+  if (arg < 2) return false;
+  for (int i = 2; i * i <= arg; ++i) {
+    if (arg % i == 0) {
+      *result_listener << arg << " is divisible by " << i;
+      return false;
+    }
+  }
+  return true;
+}
+
+// Custom action that increments a counter
+struct IncrementCounter {
+  int& counter;
+  void operator()() { ++counter; }
+};
+
+class MockExample {
+ public:
+  MOCK_METHOD(void, Notify, (), ());
+};
+
+TEST(CustomExtTest, Example) {
+  MockExample mock;
+  int count = 0;
+
+  EXPECT_CALL(mock, Notify())
+      .WillRepeatedly(IncrementCounter{count});
+
+  mock.Notify();
+  mock.Notify();
+
+  EXPECT_EQ(count, 2);
+  EXPECT_THAT(17, IsPrime());
+  EXPECT_THAT(18, Not(IsPrime()));
+}
+```
+
+---
+
+## 10. Related Topics and Next Steps
+
+- For quick mock creation and usage basics, see [gMock for Dummies](gmock_for_dummies.md).
+- For common mocking patterns and recipes, consult the [gMock Cookbook](gmock_cook_book.md).
+- Explore detailed mocking syntax and mechanics in the [Mocking Reference](reference/mocking.md).
+- Learn about advanced assertions and custom matchers in [Advanced Assertions and Custom Matchers](guides/core-workflows/advanced-assertions-matchers.md).
+- Understand mock behavior and expectations in [Mock Behavior and Expectations](guides/core-workflows/mock-behavior-expectations.md).
+
+---
+
+## 11. Troubleshooting Tips
+
+- If your custom matcher doesn't behave as expected, verify that it is pure (stateless) and side-effect free.
+- If you see warnings about uninteresting calls, consider whether you need `ON_CALL` defaults, `EXPECT_CALL` with `Times(AnyNumber())`, or a `NiceMock` wrapper.
+- Compiler errors related to mock methods usually stem from incorrect macro usage, especially with commas in argument types. Wrap complex types in parentheses or define type aliases.
+- Use `--gmock_verbose=info` to get detailed logs about which expectations matched calls.
+- Ensure all virtual methods mocked have virtual destructors in base classes.
+
+---

@@ -1,0 +1,245 @@
+---
+title: "Mock Object Architecture"
+description: "Understand the internal principles of how mock objects are created, how method call expectations are defined, and the lifecycle they follow from setup to verification. Grasp the value and mechanics of strict, nice, and naggy mocks for controlling test feedback."
+---
+
+# Mock Object Architecture
+
+Understand the internal principles of how mock objects are created, how method call expectations are defined, and the lifecycle they follow from setup to verification. Grasp the value and mechanics of strict, nice, and naggy mocks for controlling test feedback.
+
+---
+
+## Introduction to Mock Object Architecture
+
+Mock objects in GoogleMock (gMock) act as stand-ins for real objects in tests. They let you specify how the mock behaves, what calls to expect, and how to react at runtime. This page explains the underlying concepts of how mock objects are created, how method call expectations are defined, and what happens as tests progress from setup to verification.
+
+By understanding this architecture, you will know how to control feedback verbosity and how to select the most appropriate mock type (nice, naggy, or strict) for your testing goals.
+
+---
+
+## Defining Mock Classes and Methods
+
+Creating a mock class begins with deriving from an interface or base class and using the `MOCK_METHOD` macro for each virtual method you want to mock. The macro generates the method declarations and definitions needed for mocking.
+
+A typical mock class looks like this:
+
+```cpp
+class Foo {
+ public:
+  virtual ~Foo();
+  virtual int GetSize() const = 0;
+  virtual std::string Describe(const char* name) = 0;
+};
+
+class MockFoo : public Foo {
+ public:
+  MOCK_METHOD(int, GetSize, (), (const, override));
+  MOCK_METHOD(std::string, Describe, (const char* name), (override));
+};
+```
+
+You must declare mock methods in the `public` section regardless of the original method's visibility to use `ON_CALL` and `EXPECT_CALL` outside the mock class.
+
+For overloaded methods, remember to mock every overload you intend to use, or use `using` declarations to bring base overloads into scope and avoid compiler warnings.
+
+---
+
+## Setting Expectations and Default Actions
+
+Mock objects rely on expectations to define the predicted interactions with the mock methods. `EXPECT_CALL` imposes an expectation that a method will be called with certain parameters. Conversely, `ON_CALL` defines default behavior without expecting the call.
+
+### Typical Workflow for Using Mocks:
+
+1. Import necessary gMock symbols from the `testing` namespace.
+2. Create mock objects.
+3. Optionally set default actions with `ON_CALL` for when calls are uninteresting.
+4. Set expectations using `EXPECT_CALL` to specify call counts, parameters, and actions.
+5. Exercise the code using those mocks.
+6. At mock destruction or explicitly, verify that expectations are met.
+
+Example:
+
+```cpp
+using ::testing::Return;
+
+MockFoo foo;
+ON_CALL(foo, GetSize()).WillByDefault(Return(5));
+EXPECT_CALL(foo, Describe("item")).Times(3).WillRepeatedly(Return("desc"));
+
+// Code exercising foo...
+```
+
+---
+
+## Uninteresting Calls and Mock Strictness Levels
+
+### What Are Uninteresting Calls?
+
+When a mock method is called without a corresponding `EXPECT_CALL` specifying expectations, it is called an *uninteresting call*. By default, gMock will perform the default action but also emit a warning since such calls might indicate unexpected or uncovered behavior in tests.
+
+### Controlling Feedback with Mock Strictness:
+
+To manage how uninteresting calls are treated, GoogleMock offers three mock variants:
+
+- **NaggyMock:** The default behavior (currently). Emits warnings for uninteresting calls but does not fail tests.
+- **NiceMock:** Suppresses warnings for uninteresting calls, effectively ignoring them to reduce noise.
+- **StrictMock:** Treats uninteresting calls as errors, failing the test immediately.
+
+The mock variants are template wrappers around the original mock class:
+
+```cpp
+using ::testing::NiceMock;
+using ::testing::NaggyMock;
+using ::testing::StrictMock;
+
+NiceMock<MockFoo> nice_foo;      // Ignores uninteresting calls
+NaggyMock<MockFoo> naggy_foo;    // Warns on uninteresting calls
+StrictMock<MockFoo> strict_foo;  // Fails on uninteresting calls
+```
+
+These behaviors control test feedback granularity and help manage test maintainability by making the test’s expectations clear.
+
+**Tip:** It’s recommended to use `NiceMock` most of the time for maintainable tests, `NaggyMock` during development/debugging for visibility, and `StrictMock` sparingly to enforce rigorous call constraints.
+
+---
+
+## Using Constructed Mock Variants
+
+Each mock strictness variant inherits constructors from the base mock class, so you can pass arguments as if instantiating the original mock. For example:
+
+```cpp
+NiceMock<MockBar> nice_bar("hello");  // Calls MockBar(string) constructor
+StrictMock<MockBar> strict_bar('a', 'b', "c", "d", 1, 2, "e", "f", true, false);
+```
+
+This flexibility ensures easy transition between mock variants without rewriting construction code.
+
+---
+
+## Lifecycle of Mock Objects and Expectations
+
+### Registration
+
+When you create a mock object and set expectations or default actions on its methods, gMock registers it internally and attaches each mock method's expectations to the mock object.
+
+### Verification upon Destruction
+
+By default, gMock automatically verifies all expectations on the mock object when it is destructed. If any expectations are unmet, it reports test failures, helping catch incorrect assumptions early.
+
+If your mock object lives beyond the test scope or is leaked, no automatic verification occurs unless you manually invoke `Mock::VerifyAndClearExpectations(&mock_obj)`.
+
+```cpp
+// Manually verify and clear expectations on a mock object:
+bool ok = ::testing::Mock::VerifyAndClearExpectations(&mock_obj);
+ASSERT_TRUE(ok);
+```
+
+### Clearing Expectations and Default Actions
+
+You can clear expectations and default actions explicitly using `Mock::VerifyAndClear()`, which performs verification and then resets the mock state.
+
+---
+
+## Expectation Matching and Ordering
+
+### Matching Multiple Expectations
+
+If several expectations match a method call, gMock selects the last (newest) matching expectation. This allows general catch-all expectations to be set early and specialized expectations set later without interference.
+
+### Ordering Constraints
+
+- **Unordered Calls:** By default, calls may occur in any order matching expectations.
+- **Sequences:** Using the `InSequence` object, expectations declared inside its scope must be matched in the order declared.
+
+```cpp
+using ::testing::InSequence;
+{
+  InSequence seq;
+  EXPECT_CALL(mock, Foo(1));
+  EXPECT_CALL(mock, Foo(2));
+}
+```
+
+This enforces the call to `Foo(1)` before `Foo(2)`.
+
+### Partial Orders with `After` and `InSequence`
+
+You can specify arbitrary partial orderings via `After()` and by assigning `Sequence` objects with `InSequence()`. This allows more realistic modeling of expected call orderings without enforcing rigid total orders.
+
+---
+
+## Handling Unexpected Calls
+
+Calls matching no expectations are termed *unexpected calls*. These are always errors and fail tests. You can prevent them by adding catch-all expectations with `Times(AnyNumber())`.
+
+Example:
+
+```cpp
+EXPECT_CALL(mock_ctx, GetValue(_)).Times(AnyNumber());  // Catch-all expectation
+EXPECT_CALL(mock_ctx, GetValue(42)).WillRepeatedly(Return(100));
+```
+
+Unmatched calls won't pass silently if you use `StrictMock` or use the default naggy behavior will warn.
+
+---
+
+## Tips & Best Practices
+
+- **Specify Expectations Before Use:** Always set `EXPECT_CALL` statements before exercising the mocks. Setting expectations afterward leads to undefined behavior.
+- **Use NiceMock When Possible:** To minimize test maintenance due to uninteresting call warnings.
+- **Retire Expectations When Saturated:** Use `.RetiresOnSaturation()` to disable expectations after they are fulfilled, useful for managing overlapping expectations and complex call patterns.
+- **Understand Sticky Expectations:** By default, expectations remain active even after their call limits have been reached unless retired or in sequence.
+
+---
+
+## Troubleshooting Common Issues
+
+- **Warnings for Uninteresting Calls:** Can be suppressed by using `NiceMock`, or explicitly adding a catch-all `EXPECT_CALL` with `Times(AnyNumber())`.
+- **Unexpected Calls:** Indicate missing or incorrect `EXPECT_CALL`s or call arguments.
+- **Mock Object Leaks:** Without proper destruction, expectations do not get verified. Use `Mock::AllowLeak()` to suppress leak errors if intentional.
+- **Mocking Non-Virtual Methods:** Not supported directly; use template-based dependency injection or mock an interface instead.
+
+---
+
+## Further Reading
+
+For deeper understanding, see:
+
+- [Mock Object API Reference](../api-reference/matchers-actions/mock-object-api.md) for method declaration and mocking details.
+- [gMock Cheat Sheet](../docs/gmock_cheat_sheet.md) for quick syntax and examples.
+- [Matchers and Expectations](../concepts/mocking-models/matchers-concept.md) to master flexible assertions.
+- [Mock Behavior and Expectations](../guides/core-workflows/mock-behavior-expectations.md) for practical mock usage patterns.
+
+---
+
+# Summary Diagram of Mock Object Lifecycle
+
+```mermaid
+flowchart TD
+
+  MockCreation["Create Mock Object"] --> ExpectationSetup["Set EXPECT_CALL / ON_CALL"]
+  ExpectationSetup --> Invocation["Code Exercises Mocks"]
+  Invocation --> Verification["Automatic & Manual Verification"]
+  Verification --> Destruction["Mock Object Destruction"]
+  Destruction -->|Verifies expectations| End(["Test Ends"])
+
+  classDef block fill:#f9f,stroke:#333,stroke-width:2px;
+  class Verification,ExpectationSetup block;
+
+  subgraph Strictness Levels
+    direction LR
+    Nice[NiceMock - silences uninteresting call warnings]
+    Naggy[NaggyMock - warns on uninteresting calls]
+    Strict[StrictMock - fails on uninteresting calls]
+  end
+
+  Invocation -.-> StrictnessDecision["Uninteresting Call Detected?"]
+  StrictnessDecision -- No --> Invocation
+  StrictnessDecision -- Yes -->|Check Mock Type| Nice
+  StrictnessDecision -- Yes -->|Check Mock Type| Naggy
+  StrictnessDecision -- Yes -->|Check Mock Type| Strict
+
+  Strict -.-> Verification
+  Naggy -.-> Verification
+  Nice -.-> Verification
+```

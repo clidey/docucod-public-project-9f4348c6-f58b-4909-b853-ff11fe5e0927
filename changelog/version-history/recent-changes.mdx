@@ -1,0 +1,113 @@
+---
+title: "What's New in the Latest Version"
+description: "A deep dive into the features, improvements, and critical fixes introduced in the most recent release. Highlights anything that testers and CI maintainers need to know right away, including dependencies such as updated C++ standards."
+---
+
+# What's New in the Latest Version
+
+Explore the most impactful updates, critical fixes, and feature enhancements introduced in the latest GoogleTest release. This guide is crafted to provide test authors and continuous integration maintainers with clear insights into what has changed, how it affects your test suites, and what adjustments you might need to make, especially concerning updated C++ standard requirements.
+
+## 1. Minimum C++ Standard Requirement Raised
+
+The 1.17.x release branch mandates **at least C++17** compliance. This change ensures GoogleTest leverages modern language features, improving code clarity and maintainability while aligning with contemporary C++ standards.
+
+### What This Means for Users:
+- Ensure your project compiler settings specify `-std=c++17` or higher.
+- Older codebases targeting earlier standards must upgrade before adopting this release.
+- If using build systems like Bazel or CMake, review configuration files to confirm C++17 compatibility.
+
+<Tip>
+If your build breaks on upgrade, verify your compiler does indeed support C++17 and that all translation units are compliant.
+</Tip>
+
+## 2. Consolidation of GoogleTest and GoogleMock
+
+The repository now fully merges GoogleTest and GoogleMock, streamlining maintenance and user experience:
+
+- Tests and mocks are released, built, and versioned together.
+- Users no longer need to coordinate separate dependencies for testing and mocking.
+- Documentation reflects this unified approach for easier navigation and adoption.
+
+<Note>
+Existing projects using separate GoogleMock setups should update their dependencies and build scripts to rely on the combined package to ensure compatibility with new releases.
+</Note>
+
+## 3. Documentation Now Hosted on GitHub Pages
+
+To enhance accessibility and user experience, the official GoogleTest documentation is now published on GitHub Pages at:
+
+[https://google.github.io/googletest/](https://google.github.io/googletest/)
+
+Highlights:
+- Easier browsing and navigation independent of the source repository.
+- Reference guides, tutorials, and API docs are continuously updated.
+- Recommended primary source for up-to-date GoogleTest information.
+
+<Tip>
+Bookmark the GitHub Pages URL for quick, reliable access to the latest docs.
+</Tip>
+
+## 4. Continuous Integration on Google Internal Systems
+
+The latest release utilizes Google's internal CI infrastructure for enhanced testing rigor and reliability before public distribution.
+
+Benefits:
+- Faster bug detection and fix cycles.
+- Robust coverage of supported platforms.
+- Early identification of compatibility issues.
+
+<Info>
+While the CI environment is internal, users can benefit indirectly from more stable releases and quicker turnaround on bugs.
+</Info>
+
+## 5. Upcoming Dependency on Abseil Library
+
+GoogleTest plans to integrate more tightly with Abseil, Google's common C++ utility library. This transition aims to:
+
+- Leverage Abseil's utilities for string formatting, flags, and other foundational features.
+- Reduce duplication of code and improve consistency across Google’s C++ ecosystem.
+
+<Warning>
+No immediate action is required at the time of this release, but prepare for dependency management adjustments in future releases.
+</Warning>
+
+## 6. Key Enhancements and Fixes in Recent Releases
+
+### Version 1.17.0 Highlights
+
+- **C++17 Standard Enforcement:** Removed support for earlier standards.
+- **Test Discovery Improvements:** Enhanced automatic test identification and registration.
+- **Assertion Enhancements:** Fine-tuned failure messages and new assertion behaviors.
+- **Death Tests Stability:** Improvements addressing thread-safety and forking issues.
+- **Bug Fixes:** Addressed multiple issues affecting typed tests, parameterized tests, and event listeners.
+
+For full details and patch notes, visit the [1.17.0 release page](https://github.com/google/googletest/releases/tag/v1.17.0).
+
+## 7. Testing and Migration Recommendations
+
+Whether upgrading from an earlier release or starting fresh, consider the following:
+
+- Adjust your build configurations to ensure C++17 compliance.
+- Review your test cases for deprecated usages and incompatible constructs.
+- Take advantage of improved assertions and richer test filtering capabilities.
+- Use the updated documentation on GitHub Pages to understand new features and best practices.
+
+<Tip>
+In large projects, run your test suite with `--gtest_list_tests` then `--gtest_filter` to selectively validate test compatibility before full rollout.
+</Tip>
+
+## 8. Additional Resources
+
+- [GoogleTest Primer](https://google.github.io/googletest/primer.html) for essential features and usage patterns.
+- [Advanced GoogleTest Topics](https://google.github.io/googletest/advanced.html) for deep dives into fixtures, assertions, and test management.
+- [Assertions Reference](https://google.github.io/googletest/reference/assertions.html) for detailed macro guides.
+- [Release Notes Archive](https://github.com/google/googletest/releases) for historical changes.
+
+---
+
+Stay current with GoogleTest releases to harness all improvements and maintain robust, maintainable test suites aligned with modern C++ practices.
+
+
+---
+
+© Google 2024 | [Source Repository](https://github.com/google/googletest)

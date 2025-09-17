@@ -1,0 +1,295 @@
+---
+title: "Troubleshooting Common Setup Issues"
+description: "Find solutions to the setup errors most often encountered by new users, such as missing includes, linker errors, and unsupported compiler configurations."
+---
+
+# Troubleshooting Common Setup Issues
+
+When starting with GoogleTest, new users sometimes encounter setup errors that prevent successful compilation, linking, or execution of their tests. This document addresses the most frequent setup issues, including missing includes, linker errors, and unsupported compiler configurations, enabling you to quickly identify and resolve common stumbling blocks.
+
+---
+
+## 1. Missing Includes or Header Files
+
+### Problem:
+Compilation errors citing missing GoogleTest headers such as `<gtest/gtest.h>`.
+
+### Solution:
+- Ensure the GoogleTest source or installed headers are correctly located in your project's include path.
+- If you installed GoogleTest via a package manager (or manually), verify that the include directory is specified correctly with your compiler: 
+
+```bash
+-I/path/to/googletest/include
+```
+
+- For CMake users, check that `target_include_directories` or `include_directories` include your GoogleTest path.
+
+### Tips:
+- Confirm that `googletest/include/gtest/gtest.h` exists in your environment.
+- Use absolute paths initially to rule out include path misconfiguration before switching to relative paths.
+
+
+## 2. Linker Errors (Undefined References)
+
+### Problem:
+Linker errors such as "undefined reference to `testing::Test::Run()`" or "undefined reference to GoogleTest symbols".
+
+### Causes:
+- GoogleTest libraries are missing from the link command.
+- Mixing static and dynamic linking inconsistently.
+- Incomplete object files or missing source files.
+
+### Solution:
+- Make sure to link your test executable against GoogleTest libraries.
+  - For CMake:
+
+```cmake
+find_package(GTest REQUIRED)
+target_link_libraries(my_test PRIVATE GTest::gtest GTest::gtest_main)
+```
+
+- If using Bazel or other build systems, confirm `googletest` is specified as a dependency.
+- For manual builds, compile GoogleTest sources (e.g., `gtest-all.cc`) and link the resulting object files.
+
+### Specific Issue: Undefined Reference to Static Const Members
+
+If you see linker errors related to static const members of your test classes, remember:
+
+- In your header:
+  ```cpp
+  class Foo {
+    static const int kBar = 100;
+  };
+  ```
+
+- You must also define it once in a `.cc` (implementation) file:
+  ```cpp
+  const int Foo::kBar;  // no initializer here
+  ```
+
+- If the static member is declared `constexpr`, no out-of-class definition is needed.
+
+### Note:
+Failure to define static const members outside the class leads to linker errors, especially when they are used in assertions.
+
+
+## 3. Unsupported Compiler or Build Configuration
+
+### Problem:
+Errors caused by using unsupported compilers or compiler versions, or build configurations that don't conform to C++17 or later standards.
+
+### Solution:
+- Confirm your compiler supports at least **C++17**, as GoogleTest requires it.
+- Verify your build system configures the compiler to use C++17 or newer. For example, add to your `CMakeLists.txt`:
+
+```cmake
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+```
+
+- Ensure exception handling and threading are enabled per GoogleTest requirements.
+- Review the [Supported Platforms & Build Tool Integrations](overview/integration-and-ecosystem/supported-platforms-build-tools) document for compatibility information.
+
+
+## 4. Naming Tests: Underscores and Fixture Issues
+
+### Problem:
+Errors or strange behavior when test suite or test names contain underscores (`_`).
+
+### Explanation:
+GoogleTest reserves underscores in test and test suite names for internal purposes. Using leading or trailing underscores, or multiple sequential underscores can cause conflicts leading to compilation or runtime errors.
+
+### Solution:
+- Avoid using underscores at the start or end of test suite and test names.
+- Avoid underscores in test and suite names altogether for guaranteed compatibility.
+- For more details, see the [FAQ about underscore usage](faq.md#why-should-test-suite-names-and-test-names-not-contain-underscore).
+
+
+## 5. Mixing TEST and TEST_F in the Same Test Suite
+
+### Problem:
+Runtime errors such as "All tests in the same test suite must use the same test fixture class."
+
+### Cause:
+Combining `TEST()` and `TEST_F()` macros within the same test suite name causes GoogleTest to detect conflicts because `TEST()` uses the default fixture and `TEST_F()` uses the user-defined fixture.
+
+### Solution:
+- Use consistent macros within the same test suite: either use only `TEST()` or only `TEST_F()`.
+- If you want both types of tests, separate their test suite names.
+- For details and examples, see the [FAQ on this error](faq.md#ismix).
+
+
+## 6. Death Test Setup Issues
+
+### Problem:
+Death tests (`EXPECT_DEATH`, `ASSERT_DEATH`) may hang, crash unexpectedly, or produce misleading results.
+
+### Common Pitfalls:
+- Having running threads in the parent process during death tests.
+- Using mocks outside the death test statement causing unexpected behavior.
+
+### Recommendations:
+- Avoid creating threads outside of `EXPECT_DEATH` blocks.
+- Consider setting death test style to "threadsafe" for safer, albeit slower, execution.
+
+```cpp
+GTEST_FLAG_SET(death_test_style, "threadsafe");
+```
+- For mocking inside death tests, place `EXPECT_CALL` statements inside the death test macro.
+- See [Death Tests and Threads](advanced.md#death-tests) for full best practices.
+
+
+## 7. Runtime Errors in Fixtures
+
+### Problem:
+Errors during fixture setup, such as "no matching function for call to FooTest::FooTest()".
+
+### Cause:
+Test fixtures must have a default constructor because GoogleTest creates an instance per test.
+
+### Solution:
+- Define a default constructor if you've explicitly declared non-default constructors.
+- For fixtures with `const` static members, remember to initialize them appropriately.
+- Consider the GoogleTest [FAQ entry on this issue](faq.md#nofunc).
+
+
+## 8. Misuse of Fatal Assertions in Non-Void Functions
+
+### Problem:
+Compiler error messages like "void value not ignored as it ought to be" when using `ASSERT_*` macros in functions returning non-void.
+
+### Explanation:
+`ASSERT_*` macros generate fatal failures by returning from the current function early, which requires the function to be of return type `void`.
+
+### Solution:
+- Use `EXPECT_*` macros in non-void functions.
+- Refactor your function to return `void` if fatal assertions are needed inside.
+- See the [FAQ on assertion placement](faq.md#voidfail) and the [Advanced GoogleTest Topics](advanced.md#assertion-placement) for detailed guidance.
+
+
+## 9. Build and Link Tips
+
+### Using CMake
+
+- Link your test target against GoogleTest libraries.
+- Add the following to your `CMakeLists.txt`:
+
+```cmake
+find_package(GTest REQUIRED)
+add_executable(my_test test.cc)
+target_link_libraries(my_test PRIVATE GTest::gtest GTest::gtest_main pthread) # add pthread on Linux
+```
+
+- Ensure you have initialized GoogleTest in `main()`:
+
+```cpp
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+```
+
+### Common Pitfall
+- Don't forget to return the value of `RUN_ALL_TESTS()` from `main()`. Ignoring it can cause logical errors.
+
+
+## 10. Common Pitfalls and How to Avoid Them
+
+- Always call `InitGoogleTest()` before running tests.
+- Avoid multiple definitions of the same test suite name with different fixtures.
+- Avoid underscores in test suite and test names to prevent symbol conflicts.
+- Define static const members outside class definitions if not `constexpr`.
+- Use proper constructors for your test fixtures that GoogleTest can instantiate.
+
+
+## Troubleshooting Checklist
+
+| Symptom | Suggested Action |
+|-----------------------------------|------------------------------------------------------|
+| Missing header errors             | Verify include paths include GoogleTest headers.     |
+| Undefined reference linker errors | Confirm linking with GoogleTest library.              |
+| Test suite fails to run or throws | Check fixture constructors and loading.               |
+| Death tests hang or fail          | Use "threadsafe" style and avoid threads in parent. |
+| Compilation errors on ASSERT_*   | Ensure ASSERT_* macros are in `void` functions only. |
+
+
+---
+
+## Additional Resources
+
+- [FAQ on Common Errors](faq.md)
+- [Configuration and First Test Guide](getting-started/configuration-and-first-test/project-setup)
+- [Assertions Reference](reference/assertions.md)
+- [Advanced GoogleTest Topics](advanced.md)
+- [Supported Platforms & Build Tools](overview/integration-and-ecosystem/supported-platforms-build-tools)
+
+
+---
+
+## Summary Example to Deal With Linker "Undefined Reference" Errors
+
+```cmake
+add_executable(my_test test_main.cc my_tests.cc)
+target_link_libraries(my_test PRIVATE GTest::gtest GTest::gtest_main pthread)
+```
+
+```cpp
+#include <gtest/gtest.h>
+
+TEST(FooTest, Bar) {
+  EXPECT_EQ(1, 1);
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+```
+
+---
+
+## Example: Defining and Using Static Const Members Properly
+
+```cpp
+// In header (foo.h)
+class FooTest : public testing::Test {
+ protected:
+  static const int kValue = 42;
+};
+
+// In implementation file (foo_test.cc)
+const int FooTest::kValue;  // Required definition
+
+TEST_F(FooTest, Example) {
+  EXPECT_EQ(kValue, 42);
+}
+```
+
+---
+
+## Example: Avoiding Underscore Usage in Test Names
+
+```cpp
+// Avoid
+TEST(Time_Flies, Like_An_Arrow) { ... }
+
+// Prefer
+TEST(TimeFlies, LikeAnArrow) { ... }
+```
+
+---
+
+## Essential Pro Tips
+
+- Always keep your test suite and test names free of leading and trailing underscores.
+- For fixtures, ensure a public or default constructor is defined if you've customized constructors.
+- When running tests, use Google's `RUN_ALL_TESTS()` return value as your program's return value.
+- Use `SCOPED_TRACE` to debug assertion failures in helper functions.
+- Read the GoogleTest FAQ for clarifications on errors.
+
+---
+
+For more specific cases, refer to [GoogleTest FAQ](faq.md), especially sections on "undefined references", naming rules, and test fixture management.
+
+
+

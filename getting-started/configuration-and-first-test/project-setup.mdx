@@ -1,0 +1,209 @@
+---
+title: "Project Setup & Integration"
+description: "Configure your project to use GoogleTest and GoogleMock by including the necessary headers and linking the appropriate libraries. Learn the layout of a minimal test project and where to place your test files for standard workflows."
+---
+
+# Project Setup & Integration
+
+Configure your project to use GoogleTest and GoogleMock by including the necessary headers and linking the appropriate libraries. Learn the layout of a minimal test project and where to place your test files for standard workflows.
+
+---
+
+## 1. Prerequisites & Environment Setup
+
+Before integrating GoogleTest and GoogleMock into your project, ensure your development environment meets the following:
+
+- **C++ Standard**: Your compiler must support C++17 or later.
+- **Supported Platforms**: Linux, Windows, and Mac are fully supported.
+- **Build Tools**: Compatible with Bazel and CMake build systems for seamless integration.
+
+<Tip>
+Refer to the [System Requirements & Supported Platforms](../getting-started/prerequisites-and-installation/system-requirements.md) page for detailed environment and platform compatibility.
+</Tip>
+
+---
+
+## 2. Installation and Setup
+
+### 2.1 Obtaining GoogleTest and GoogleMock
+
+GoogleMock is bundled with GoogleTest. Clone or download the complete GoogleTest repository from GitHub:
+
+```bash
+git clone https://github.com/google/googletest.git
+```
+
+Choose the appropriate branch or release tag for your project stability requirements.
+
+### 2.2 Including Headers
+
+In your test files, include the main GoogleMock header to access both GoogleMock and GoogleTest functionalities:
+
+```cpp
+#include <gmock/gmock.h>
+```
+
+This header incorporates all core mocking macros, classes, and supporting APIs.
+
+### 2.3 Linking Libraries
+
+When building your project, link against the GoogleTest and GoogleMock libraries.
+
+- If using CMake, add the following to your `CMakeLists.txt`:
+
+```cmake
+find_package(GTest REQUIRED)
+include_directories(${GTEST_INCLUDE_DIRS})
+add_executable(your_test your_test.cc)
+target_link_libraries(your_test ${GTEST_LIBRARIES} pthread)
+```
+
+- If using Bazel, reference `@com_google_googletest//:gmock_main` or `@com_google_googletest//:gmock` in your target dependencies.
+
+<Tip>
+Link to `gmock_main` provides a default `main()` implementation, eliminating the need to write your own.
+</Tip>
+
+---
+
+## 3. Minimal Test Project Layout
+
+Establish a clear and consistent directory structure to facilitate test discovery and maintainability:
+
+```
+/project_root
+  /src                  # Your source code files
+  /include              # Project headers
+  /tests                # Test files
+    /unit               # Unit tests using GoogleTest and GoogleMock
+      my_class_test.cc  # Example test file
+  CMakeLists.txt        # Or BUILD file for Bazel
+```
+
+### 3.1 Placing Test Files
+
+- Place test files in dedicated directories like `/tests/unit/` or `/tests/integration/`.
+- Name test files with the `_test.cc` suffix to follow convention.
+- Keep tests close to the related source code but in separate folders to avoid accidental inclusion in production builds.
+
+---
+
+## 4. Writing Your First Test and Mock
+
+The typical workflow to activate GoogleTest and GoogleMock in your project is:
+
+### 4.1 Create a Mock Class
+
+Define mock classes by deriving from your interface or class and use the `MOCK_METHOD` macro to mock virtual methods:
+
+```cpp
+#include <gmock/gmock.h>
+
+class MockFoo : public Foo {
+public:
+  MOCK_METHOD(int, GetSize, (), (const, override));
+  MOCK_METHOD(std::string, Describe, (const char* name), (override));
+};
+```
+
+Make sure all mock methods are declared `public:` even if the original base functions are protected or private.
+
+### 4.2 Writing a Test Using Mock Objects
+
+Set up your expectations and exercises the code under test:
+
+```cpp
+#include <gtest/gtest.h>
+#include "mock_foo.h"
+
+using ::testing::Return;
+
+TEST(FooTest, SampleTest) {
+  MockFoo mock_foo;
+  EXPECT_CALL(mock_foo, GetSize())
+      .WillOnce(Return(10));
+
+  // Exercise code that uses mock_foo here...
+  EXPECT_EQ(mock_foo.GetSize(), 10);
+}
+```
+
+Use `EXPECT_CALL` to specify how many times and with what arguments mock methods are expected to be called.
+
+<Tip>
+Avoid setting expectations after the code under test exercises the mock to prevent undefined behavior and test flakiness.
+</Tip>
+
+---
+
+## 5. Initialization and Test Execution
+
+If you link against `gmock_main`, no further action is required to run tests.
+
+Otherwise, define your own `main()` function to initialize GoogleTest and GoogleMock:
+
+```cpp
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleMock(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+```
+
+Run your test executable; all registered tests will run automatically.
+
+<Tip>
+Ensure you return the value of `RUN_ALL_TESTS()` from your `main()` as test success or failure is derived from this return code.
+</Tip>
+
+---
+
+## 6. Best Practices and Common Pitfalls
+
+- **Use NiceMock, NaggyMock, or StrictMock Wisely:**
+  - `NiceMock<T>` suppresses warnings for unexpected calls.
+  - `NaggyMock<T>` (default) prints warnings on uninteresting calls.
+  - `StrictMock<T>` treats uninteresting calls as errors.
+
+- **Set Expectations Before Exercising Mocks:** Always place `EXPECT_CALL()` statements before any calls to mocked methods.
+
+- **Avoid Mocking Concrete Implementations:** Prefer mocking interfaces or abstract classes rather than concrete classes.
+
+- **Keep Test Code Independent and Repeatable:** Tests should not depend on external state or order.
+
+- **Use Default Actions with `ON_CALL` for Common Behavior:** Use `ON_CALL` to specify sane defaults for mock methods, reserving `EXPECT_CALL` for strict expectations.
+
+<Tip>
+Review the [gMock Cookbook](../docs/gmock_cook_book.md) for practical recipes and patterns.
+</Tip>
+
+---
+
+## 7. Troubleshooting Integration Issues
+
+- Verify that your compiler supports C++17.
+- Confirm that your test files include `gmock/gmock.h` and are linked with the appropriate GoogleTest libraries.
+- If tests fail to register or run, ensure you initialize GoogleMock correctly before calling `RUN_ALL_TESTS()`.
+- Use verbose output flags for debugging:
+  
+```bash
+./your_test --gmock_verbose=info
+```
+
+This prints informative logs about mock invocations and matching, aiding in diagnosing mismatched expectations.
+
+---
+
+## 8. Next Steps & Useful Links
+
+- Explore [Your First Test: Hello, GoogleTest!](../getting-started/configuration-and-first-test/hello-world-test.md) to write and run a simple test.
+- Read [Your First Mock: Basics with GoogleMock](../getting-started/configuration-and-first-test/first-mock-example.md) for a beginner-friendly introduction to mocking.
+- Consult the [GoogleTest Primer](../docs/primer.md) for a broader understanding of the testing framework.
+- For complex mocking scenarios, see the [Mocking Reference](../docs/reference/mocking.md).
+- Join community forums or check [FAQ](../faq/general-usage/getting-started-questions.md) for help.
+
+---
+
+Harness the power of GoogleTest and GoogleMock to write maintainable, robust tests in your C++ projects. Start small, build confidence, and explore the rich ecosystem and patterns supported.

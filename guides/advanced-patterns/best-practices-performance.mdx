@@ -1,0 +1,229 @@
+---
+title: "Best Practices and Performance Optimization"
+description: "Shares actionable guidance for large codebases: minimizing test execution time, organizing for scale, avoiding common pitfalls, and writing maintainable, readable tests that last."
+---
+
+# Best Practices and Performance Optimization
+
+GoogleTest scales to large and complex C++ codebases by providing features and workflows that maintain fast, maintainable, and reliable test suites. This guide shares actionable strategies to minimize test execution time, organize tests for scalability, avoid common pitfalls, and craft maintainable and readable tests that stand the test of time.
+
+---
+
+## 1. Workflow Overview
+
+### What You Will Learn
+This page guides you through the best practices for writing, structuring, and optimizing GoogleTest test suites in large projects.
+
+### Prerequisites
+- Basic knowledge of GoogleTest syntax and test writing. Refer to the [GoogleTest Primer](primer.md) if you're new.
+- Familiarity with writing tests using `TEST()`, `TEST_F()`, and parameterized tests.
+
+### Expected Outcome
+After completing this guide, you will be able to:
+- Organize your tests to promote scalability and maintainability.
+- Minimize test execution time for large test suites.
+- Avoid common mistakes that cause flaky or slow tests.
+- Write tests that are clear and sustainable.
+
+### Time Estimate
+15-30 minutes depending on your experience and codebase size.
+
+### Difficulty Level
+Intermediate
+
+---
+
+## 2. Best Practices for Writing and Organizing Tests
+
+### 2.1 Group Tests Logically
+Structure test cases into *test suites* (`TEST()` or `TEST_F()` groups) that mirror the structure of your codebase. This logical grouping improves readability and maintainability, making it easier to locate and manage tests related to a specific feature or module.
+
+### 2.2 Use Test Fixtures to Share Setup
+Leverage test fixtures (`TEST_F()`) when multiple tests require the same setup. Fixtures help avoid duplicated code, centralize common configurations, and improve test reliability.
+
+```cpp
+class DatabaseTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    db_.Connect("localhost");
+  }
+  void TearDown() override {
+    db_.Disconnect();
+  }
+  Database db_;
+};
+
+TEST_F(DatabaseTest, SupportsQueries) {
+  EXPECT_TRUE(db_.Execute("SELECT 1"));
+}
+
+TEST_F(DatabaseTest, ReturnsExpectedResults) {
+  ...
+}
+```
+
+### 2.3 Prefer Parameterized and Typed Tests to Avoid Duplication
+Writing parameterized tests (`TEST_P()`) enables testing the same code with different inputs without duplicated test code. Typed tests (`TYPED_TEST()`) help when the same test logic applies to different types.
+
+For large codebases with numerous variations, prefer these macros to keep test code concise and manageable.
+
+### 2.4 Isolate Tests
+Each test should be independent—with no hidden dependencies on execution order or shared state—to ensure repeatability and ease of debugging. GoogleTest creates new test fixtures for each test, so avoid sharing mutable global state.
+
+---
+
+## 3. Minimizing Test Execution Time
+
+### 3.1 Avoid Expensive Setup in Every Test
+Put expensive initializations in `SetUpTestSuite()` and cleanup in `TearDownTestSuite()`, so they run only once per test suite instead of in each test's `SetUp()` and `TearDown()`.
+
+```cpp
+class ExpensiveTest : public ::testing::Test {
+ public:
+  static void SetUpTestSuite() {
+    resource_ = new ExpensiveResource();
+  }
+  static void TearDownTestSuite() {
+    delete resource_;
+    resource_ = nullptr;
+  }
+
+ protected:
+  void SetUp() override {
+    // quick setup per test
+  }
+
+  static ExpensiveResource* resource_;
+};
+
+ExpensiveResource* ExpensiveTest::resource_ = nullptr;
+```
+
+### 3.2 Disable or Isolate Flaky and Disabled Tests
+Use the `DISABLED_` prefix to temporarily disable flaky tests to prevent slowing down the whole suite. Provide flags to selectively run these tests when necessary.
+
+### 3.3 Use Sharding and Parallelization
+GoogleTest supports test sharding via the `GTEST_TOTAL_SHARDS` and `GTEST_SHARD_INDEX` environment variables to distribute tests across machines.
+
+Use this to parallelize large test suites and reduce overall test execution time.
+
+### 3.4 Use Filters to Run Subsets
+During development, use the `--gtest_filter` flag to run targeted tests and reduce feedback time.
+
+---
+
+## 4. Writing Maintainable and Readable Tests
+
+### 4.1 Clear Naming
+Use descriptive and consistent names for test suites and tests that clearly express what is being tested. Avoid underscores (`_`) in test and suite names to prevent collisions and maintain compiler compatibility ([Why avoid underscores?](faq.md#why-should-test-suite-names-and-test-names-not-contain-underscore)).
+
+### 4.2 Avoid Overly Complex Test Logic
+Keep tests focused and small. If logic grows complex, refactor into helper functions or custom matchers.
+
+### 4.3 Assert Thoughtfully
+Use non-fatal assertions (`EXPECT_*`) when you want tests to continue running to report multiple failures. Use fatal assertions (`ASSERT_*`) if continuing is meaningless or dangerous (e.g., dereferencing a null pointer).
+
+### 4.4 Use `SCOPED_TRACE()` to Add Context
+Help debugging by adding contextual trace messages when invoking helper subroutines, which add call stack information on failures.
+
+```cpp
+SCOPED_TRACE("Checking complex case");
+CheckFunction(...);
+```
+
+### 4.5 Use `RecordProperty` to Log Additional Information
+When you want extra data in test reports, log key-values via `RecordProperty` inside tests or fixtures.
+
+---
+
+## 5. Avoiding Common Pitfalls
+
+### 5.1 Don't Share Mutable State Without Proper Synchronization
+When tests share mutable global state without protection, they become prone to flakiness.
+
+### 5.2 Beware of Using Fatal Assertions in Constructors or Destructors
+`ASSERT_*` macros cannot be used inside constructors or destructors; use `SetUp()` or `TearDown()` instead ([Assertion Placement](advanced.md#assertion-placement)).
+
+### 5.3 Don't Ignore `RUN_ALL_TESTS()`' Return Value
+Always return the value of `RUN_ALL_TESTS()` from your `main()` to ensure test frameworks correctly detect failures.
+
+### 5.4 Parameterized Tests Must Be Instantiated
+Every use of `TEST_P()` must be accompanied by a corresponding `INSTANTIATE_TEST_SUITE_P()` unless explicitly suppressed with `GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST()`.
+
+### 5.5 Avoid Macro Name Clashes
+If your code uses macros that clash with GoogleTest's macros (like `ASSERT_EQ`), rename using macros such as `-DGTEST_DONT_DEFINE_ASSERT_EQ=1`.
+
+---
+
+## 6. Tips for Performance Optimization
+
+- Favor reusing shared resources initialized once per test suite over per-test reinitialization.
+- Avoid expensive I/O or network operations directly inside tests.
+- Cache immutable inputs or mock out expensive dependencies.
+- Use test filters and sharding to reduce unnecessary test runs during development.
+- Remove redundant tests to keep your suite lean while maintaining coverage.
+
+---
+
+## 7. Example: Optimizing a Large Test Suite
+
+Imagine you have 1000 tests for a large component.
+
+Without optimization:
+- Each test re-runs expensive setup.
+- Tests are run sequentially.
+- Flaky tests cause repeated failures.
+
+How to improve:
+- Move expensive initialization into `SetUpTestSuite()`.
+- Use `DISABLED_` prefix to disable flaky tests until fixed.
+- Run tests in parallel shards by setting `GTEST_TOTAL_SHARDS`.
+- Use meaningful `--gtest_filter` during development.
+- Refactor common code into fixtures and helper functions.
+
+---
+
+## 8. Troubleshooting Common Issues
+
+### Problem: Tests Run Slowly
+- Check if expensive setup is running per test instead of once per suite.
+- Use profiling tools to find bottlenecks.
+- Disable flaky or redundant tests temporarily.
+
+### Problem: Tests Fail in Random Order
+- Confirm tests do not share state.
+- Use test fixtures to isolate state.
+- Enable the `--gtest_shuffle` flag to uncover order dependencies.
+
+### Problem: Parameterized Tests Not Running
+- Ensure you have called `INSTANTIATE_TEST_SUITE_P` correctly.
+- If intentional, use `GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST` to suppress failures.
+
+### Problem: Macro Name Conflicts
+- Use the `-DGTEST_DONT_DEFINE_XXX=1` options to rename clashing macros.
+
+### Problem: Unexpected Behavior in Death Tests
+- Avoid threading conflicts in death tests.
+- Follow death test naming conventions (`*DeathTest`).
+- Review [Death Tests section](guides/advanced-patterns/testing-death-and-exception-cases.md) for details.
+
+---
+
+## 9. Next Steps & Related Content
+
+- Explore **[GoogleTest Primer](primer.md)** to build foundational skills.
+- Learn about **[Parameterized and Typed Tests](guides/core-workflows/parameterized-typed-tests.md)** to maximize test reuse.
+- Read **[Advanced GoogleTest Topics](advanced.md)** for in-depth strategies and optimization techniques.
+- For mocking strategies, see **[GoogleMock Basics](guides/getting-started/mocking-basics.md)** and **[Mock Behavior and Expectations](guides/core-workflows/mock-behavior-expectations.md)**.
+- Implement custom assertions and matchers with the **[Advanced Assertions and Custom Matchers](guides/core-workflows/advanced-assertions-matchers.md)** guide.
+
+---
+
+## References
+- [GoogleTest Primer](primer.md)
+- [GoogleTest Advanced Topics](advanced.md)
+- [Testing Reference](docs/reference/testing.md)
+- [FAQ](faq.md) — Answers common questions and clarifies design decisions
+- [Samples](docs/samples.md) — See working, commented examples of best practices
+
+---

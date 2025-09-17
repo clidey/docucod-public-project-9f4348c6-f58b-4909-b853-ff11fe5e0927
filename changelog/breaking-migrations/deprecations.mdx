@@ -1,0 +1,89 @@
+---
+title: "Deprecation Notices"
+description: "Track features and APIs marked for deprecation—including timelines and alternatives. Designed to help teams plan ahead and minimize technical debt in their test infrastructure."
+---
+
+# Deprecation Notices
+
+Stay ahead of changes with this dedicated page tracking features, APIs, and behaviors marked for deprecation in GoogleTest. Here, you'll find clear guidance on what’s being phased out, the timelines involved, and recommended alternatives to keep your test infrastructure modern, maintainable, and free of technical debt.
+
+---
+
+## What Are Deprecations and Why They Matter
+
+Deprecation is the process by which GoogleTest signals that certain features or APIs are planned to be removed or replaced in future releases. Acting on deprecations early ensures your tests remain reliable, compatible, and incorporates best practices.
+
+This page serves as your focal point to:
+
+- **Identify deprecated elements:** Understand which functionalities are no longer recommended for use.
+- **Plan migrations:** Get timelines and guidance for transitioning away from deprecated code.
+- **Adopt alternatives:** Learn recommended replacements or new patterns.
+
+
+## Current Deprecation Highlights
+
+### Deprecated Macros and Patterns
+GoogleTest occasionally marks assertion macros, test fixture methodologies, or naming conventions as deprecated to improve clarity, usability, and compatibility.
+
+**Examples:**
+
+- Deprecated use of older test registration methods in favor of modern, typed, or parameterized test macros.
+- Guidelines discouraging underscores (`_`) in test suite and test names to avoid naming conflicts and reserved keyword collisions (see [Why should test suite names and test names not contain underscore?](../faq/general-usage/test-behavior-clarifications))
+
+### Deprecation of Internal APIs
+Internal mechanisms or utilities that are no longer part of the public API and slated for removal are carefully flagged to discourage reliance.
+
+### Removal Timelines
+Deprecations are accompanied by clear timelines, often spanning multiple versions to allow safe, gradual migration. Reviewing release notes regularly helps avoid surprises.
+
+
+## How to Manage Deprecations Effectively
+
+### Monitoring Deprecation Warnings
+Keep `--gtest_verbose=1` or relevant logging enabled during test runs to catch deprecation warnings early.
+
+### Revising Test Code
+Update test code by:
+
+- Refactoring deprecated test fixtures or macros to their current recommended counterparts.
+- Adjusting to updated naming conventions to avoid reserved identifiers.
+- Removing usage of deprecated internals; prefer public API alternatives.
+
+### Consulting Migration Guides
+Refer to the [Migration Guides](migration-guides.md) for step-by-step instructions on updating code after major version changes.
+
+
+## Links to Related Resources
+
+- [Breaking Changes](breaking-changes.md) for updates impacting test behaviors
+- [Migration Guides](migration-guides.md) to help update deprecated code
+- [Advanced GoogleTest Topics](../guides/advanced-patterns/best-practices-performance.md) for best practices
+- [FAQ on Test Naming Conventions](../faq/general-usage/test-behavior-clarifications.md#why-should-test-suite-names-and-test-names-not-contain-underscore)
+
+
+## Tips and Best Practices
+
+- **Act early:** Deprecated features remain functional for a time but are unsupported—plan to update promptly.
+- **Use modern macros:** Prefer `TEST_F`, `TEST_P`, and typed test macros for better type safety and feature support.
+- **Avoid reserved names:** Follow naming guidelines to prevent conflicts with internal macros.
+- **Review release notes:** Stay informed of upcoming removals and deprecations.
+
+
+## Troubleshooting Common Issues
+
+### Compilation Errors Due to Deprecated Usage
+If your build breaks following upgrades, check:
+
+- Use of deprecated macros or functions.
+- Incompatible test suite names with reserved underscore usage.
+- Missing default constructors on fixtures (often introduced alongside deprecations).
+
+### Runtime Warnings About Deprecated Features
+Enable verbose logging and scour console outputs for deprecation notices.
+
+
+Your proactive awareness and adaptation to these notices ensures long-term stability and compatibility with GoogleTest's evolving standards and frameworks.
+
+---
+
+*This page will be updated as new deprecation notices arise. Always refer to the latest release notes for comprehensive details.*

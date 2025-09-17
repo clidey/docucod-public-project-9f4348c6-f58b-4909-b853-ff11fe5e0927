@@ -1,0 +1,231 @@
+---
+title: "Getting Started and Basic Troubleshooting"
+description: "Common queries about installing, integrating, and beginning to use GoogleTest and GoogleMock. Provides concise troubleshooting steps for frequent beginner issues, such as missing headers, build errors, or test discovery problems."
+---
+
+# Getting Started and Basic Troubleshooting
+
+This FAQ addresses common inquiries from users about installing, integrating, and starting with GoogleTest and GoogleMock. It provides concise troubleshooting guidance covering frequent beginner issues such as missing headers, build failures, and test discovery challenges.
+
+---
+
+## Frequently Asked Questions (FAQs)
+
+### 1. How do I begin using GoogleTest and GoogleMock in my project?
+
+To start using GoogleTest and GoogleMock:
+
+- Ensure your environment supports C++17 or higher.
+- Add the required GoogleTest dependencies in your build system (CMake or Bazel).
+- Include the `gmock/gmock.h` header in your test files.
+- Write mock classes by deriving from interfaces and using the `MOCK_METHOD` macro to define mock methods.
+- Use `EXPECT_CALL` and `ON_CALL` macros to set expectations and default behaviors.
+
+For step-by-step instructions, see the [Getting Started Guide](https://github.com/google/googletest/blob/main/docs/getting-started/configuration-and-first-test/project-setup.md) and [Mocking for Dummies](https://github.com/google/googletest/blob/main/docs/gmock_for_dummies.md).
+
+### 2. Why do I get errors about missing GoogleTest or GoogleMock headers when compiling?
+
+This usually happens when your include paths are not set correctly. Make sure:
+
+- The GoogleTest and GoogleMock source or installed headers are accessible by your compiler via include paths.
+- For Bazel, you depend on `@com_google_googletest//:gmock` or similar targets.
+- For CMake, configure `gtest` and `gmock` targets properly.
+- Your build system links against GoogleTest and GoogleMock static or shared libraries correctly.
+
+Refer to the [System Requirements & Supported Platforms](https://github.com/google/googletest/blob/main/docs/getting-started/prerequisites-and-installation/system-requirements.md) and [Installing with CMake](https://github.com/google/googletest/blob/main/docs/getting-started/prerequisites-and-installation/installation-cmake.md).
+
+### 3. What does it mean when I see a warning "Uninteresting function call encountered - default action taken..."?
+
+This warning means you have called a mock method without setting an explicit expectation (`EXPECT_CALL`). gMock treats this as an "uninteresting call" and applies the default action (usually returning default-constructed values or doing nothing for void functions).
+
+It
+- Does not cause test failure, but prints a warning to alert you.
+- Encourages you to either suppress the warning by using `NiceMock` or add an `EXPECT_CALL(...).Times(AnyNumber())` if you anticipate such calls.
+
+If this warning is unexpected, review your tests for missing or incomplete expectations.
+
+See [The Nice, the Strict, and the Naggy](https://github.com/google/googletest/blob/main/docs/gmock_cook_book.md#NiceStrictNaggy).
+
+### 4. Why is my mocked method's real implementation getting called instead of the mock?
+
+For a function to be mocked in gMock, it must be declared `virtual` in the base class.
+
+If the function is not virtual:
+
+- The mock will not intercept calls.
+- The original implementation will be invoked instead.
+
+If you need to mock non-virtual methods, consider the [High-Perf Dependency Injection technique](https://github.com/google/googletest/blob/main/docs/gmock_cook_book.md#MockingNonVirtualMethods) which involves template-based mocks.
+
+### 5. How can I handle mocking overloaded methods?
+
+GoogleMock supports overloaded method mocking via the `MOCK_METHOD` macro.
+
+- Mock all overloads if you want errors to be avoided.
+- Use `using Base::MethodName;` inside your mock class to bring any unmocked overloads into scope and prevent hiding warnings.
+
+Example snippet:
+
+```cpp
+class MockFoo : public Foo {
+ public:
+  using Foo::Add;  // bring in unmocked overloads
+  MOCK_METHOD(int, Add, (Element x), (override));
+  MOCK_METHOD(int, Add, (int times, Element x), (override));
+};
+```
+
+Learn more in [Creating Mock Classes and Overloaded Methods](https://github.com/google/googletest/blob/main/docs/gmock_cook_book.md#MockingOverloadedMethods).
+
+### 6. How do I verify that all expectations on a mock have been met?
+
+When a mock object is destroyed, gMock automatically verifies that:
+
+- All declared expectations (`EXPECT_CALL`) have been satisfied.
+- Any unmet expectations cause the test to fail.
+
+You can also manually verify using:
+
+```cpp
+::testing::Mock::VerifyAndClearExpectations(&mock_object);
+```
+
+This is useful for heap-allocated mocks whose lifetime may be ambiguous.
+
+### 7. How do I suppress warnings for uninteresting calls in my tests?
+
+Wrap your mock object in `NiceMock<>`:
+
+```cpp
+using ::testing::NiceMock;
+NiceMock<MockFoo> mock;
+```
+
+This suppresses warnings about uninteresting calls.
+
+Use `StrictMock<>` to treat uninteresting calls as errors, and `NaggyMock<>` (default) to warn.
+
+### 8. Why do I get spurious warnings or errors about expectations not matching on uninteresting calls?
+
+- Ensure you set explicit expectations (`EXPECT_CALL`) for calls you want to verify.
+- Use `ON_CALL` to specify default behaviors without expectations.
+- Consider using `NiceMock` if you want to silence warnings on unused calls.
+
+Run tests with `--gmock_verbose=info` to receive detailed traces of mock calls and expectation matching, facilitating debugging.
+
+### 9. How do I handle common build errors related to slow compilation with many mocks?
+
+To speed up compilation:
+
+- Move mock class constructor and destructor definitions out of the header into a `.cc` file.
+- Ensure macros like `MOCK_METHOD` are used only in class declarations, with implementation separated.
+
+Refer to the recipe in the [gMock Cookbook](https://github.com/google/googletest/blob/main/docs/gmock_cook_book.md#Making-the-Compilation-Faster).
+
+### 10. How do I mock methods that work with move-only types such as `std::unique_ptr`?
+
+GoogleMock supports mocking methods that take or return move-only types:
+
+- Use `MOCK_METHOD` normally.
+- When setting return values involving move-only types, avoid `Return(std::move(...))` repeatedly because the resource is consumed after first use.
+- Use lambdas to create and return move-only values dynamically.
+
+See the detailed explanation and examples in the [gMock Cookbook's Move-Only Types section](https://github.com/google/googletest/blob/main/docs/gmock_cook_book.md#MockingMethodsThatUseMove-OnlyTypes).
+
+---
+
+## Common Issues & Fixes
+
+| Issue                                | Cause                                                      | Remedy / Workaround                                              |
+| ----------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------- |
+| Missing headers or symbols           | Incorrect include path or missing dependency in build      | Verify include and linking settings; add GoogleTest dependencies |
+| "Uninteresting function call..."   | No explicit expectation set for a called mock method        | Add `EXPECT_CALL` or use `NiceMock` to suppress warnings       |
+| Real method called instead of mock  | Method not declared `virtual` in base class                | Make method `virtual` or use dependency injection techniques   |
+| Overloaded method shadowing         | Not mocking all overloads or not using `using` declarations | Mock all overloads or bring base overloads with `using`        |
+| Slow compile due to large mocks     | Mock constructor/destructor generated in multiple translation units | Move mock constructor/destructor to `.cc` file                |
+
+---
+
+## Troubleshooting Tips
+
+### Starting Tests but Nothing Runs
+
+- Ensure tests are registered with GoogleTest by using `TEST`, `TEST_F`, or `TEST_P` macros.
+- Confirm the test executable runs and exits after running tests.
+- Check that `main()` calls `RUN_ALL_TESTS()` or that you are linking against `gmock_main` which provides a main.
+
+### Test Failures Due to Unexpected Calls
+
+- The code under test calls mock methods in unintended ways.
+- Verify that `EXPECT_CALL`s are set up *before* exercising code.
+- Use the `--gmock_verbose=info` flag to produce call traces to help diagnose conflicts.
+
+### Warnings About Default Actions
+
+- When missing default actions, unexpected calls may return garbage or cause failures.
+- Use `ON_CALL` to specify default actions for mock methods you expect to call but do not want to verify.
+
+---
+
+## Helpful Commands and Flags
+
+- `--gmock_verbose=info|warning|error`: Control verbosity of gMock messages.
+- `--gtest_filter`: Run a subset of tests.
+
+---
+
+## Next Steps & Further Resources
+
+- Explore the [gMock Cookbook](https://github.com/google/googletest/blob/main/docs/gmock_cook_book.md) for recipes on advanced mocking techniques and troubleshooting.
+- Review the [Mocking Reference](https://google.github.io/googletest/reference/mocking.html) for detailed API documentation.
+- Use [gMock for Dummies](https://github.com/google/googletest/blob/main/docs/gmock_for_dummies.md) to build foundational understanding.
+- For build integration, consult the [Installation with Bazel](https://github.com/google/googletest/blob/main/docs/getting-started/prerequisites-and-installation/installation-bazel.md) or CMake guides.
+
+---
+
+# Summary
+This FAQ guides users through initial setup and common troubles encountered when installing, integrating, and beginning to use GoogleTest and GoogleMock. It emphasizes solutions to prevalent issues like missing headers, incorrect method mocking, and uninteresting call warnings, and advises on robust practices like setting proper expectations and managing mock lifecycles.
+
+Key sections:
+- Frequently Asked Questions
+- Common Issues & Fixes
+- Troubleshooting Tips
+- Next Steps & Further Resources
+
+Important links:
+- [gMock Cookbook](https://github.com/google/googletest/blob/main/docs/gmock_cook_book.md)
+- [gMock for Dummies](https://github.com/google/googletest/blob/main/docs/gmock_for_dummies.md)
+- [Mocking Reference](https://google.github.io/googletest/reference/mocking.html)
+- [Installation and System Requirements](https://github.com/google/googletest/blob/main/docs/getting-started/prerequisites-and-installation/system-requirements.md)
+
+Cross-References:
+- GoogleTest Primer and Core Concepts guides for foundational testing knowledge
+- Guides on project setup and integration workflows
+
+Next Actions:
+- Set up your build system using official install guides
+- Write your first mock classes following `MOCK_METHOD` syntax
+- Use `EXPECT_CALL` and `ON_CALL` to specify mock behavior
+- Run tests with `--gmock_verbose=info` when debugging failures
+- Explore advanced mocking patterns and actions using the Cookbook
+
+---
+
+<CardGroup cols={2}>
+<Card title="Official GoogleTest & GoogleMock Documentation">
+- [gMock Cookbook](https://github.com/google/googletest/blob/main/docs/gmock_cook_book.md)
+- [gMock for Dummies](https://github.com/google/googletest/blob/main/docs/gmock_for_dummies.md)
+- [Mocking Reference](https://google.github.io/googletest/reference/mocking.html)
+</Card>
+<Card title="Getting Started Guides">
+- [System Requirements](https://github.com/google/googletest/blob/main/docs/getting-started/prerequisites-and-installation/system-requirements.md)
+- [Installing with CMake](https://github.com/google/googletest/blob/main/docs/getting-started/prerequisites-and-installation/installation-cmake.md)
+- [Installing with Bazel](https://github.com/google/googletest/blob/main/docs/getting-started/prerequisites-and-installation/installation-bazel.md)
+</Card>
+</CardGroup>
+
+<Note>
+Using clear expectations and default actions prevents many common test failures.
+Always verify mock lifecycles and prefer mocking virtual methods.
+Set verbosity flags when diagnosing unexpected behaviors.
+</Note>

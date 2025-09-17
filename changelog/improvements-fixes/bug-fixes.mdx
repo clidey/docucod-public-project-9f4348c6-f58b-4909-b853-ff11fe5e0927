@@ -1,0 +1,104 @@
+---
+title: "Bug Fixes and Patches"
+description: "A curated changelog of all notable bug fixes, including resolved issues, regression corrections, and robustness improvements. Real-world impact and relevant ticket references are included where available."
+---
+
+# Bug Fixes and Patches
+
+This page chronicles notable bug fixes and patches introduced into GoogleTest, focusing specifically on improvements that resolve issues, bolster reliability, and correct regressions. Each entry is framed in the context of practical user impact, clarifying how these fixes enhance test stability and developer productivity.
+
+---
+
+## Key Bug Fixes and Corrections
+
+### 1. Robust Test Execution and Reporting
+- **Consistent Fatal Failure Detection**: Resolved cases where `HasFatalFailure()` incorrectly masked or failed to detect fatal failures in nested subroutine calls. This ensures accurate fatal failure recognition, helping tests halt early as intended and prevent bogus continuations that lead to crashes.
+
+- **Accurate Test Skipping Behavior**: Fixed regressions ensuring tests and test suites honor `GTEST_SKIP()` invocations, both in fixtures and global environments. This guarantees skipped tests are genuinely bypassed and reported without side effects.
+
+- **Correct XML and JSON Reporting of Properties**: Patched scenarios where test properties recorded via `RecordProperty()` during test suite setup and teardown or global environment phases were missing or misattributed in output reports. Now, properties appear correctly in the corresponding XML `<testsuite>` or global `<testsuites>` elements.
+
+### 2. Assertion Macros and Failure Handling
+- **Reliable Assertion Macro Behavior in Constructors and Setup**: Addressed subtle issues where non-fatal failures in fixture constructors or `SetUp()`/`TearDown()` were mishandled, sometimes leading to unexpected execution paths or missed failure reports.
+
+- **Improved SCOPED_TRACE Functionality**: Fixed concurrency and lifetime bugs with `SCOPED_TRACE` that prevented traces from being scoped and combined correctly, including improvements to multi-thread safety and nested traces application, making diagnostics more precise.
+
+- **Stable Support for EXPECT_FATAL_FAILURE and EXPECT_NONFATAL_FAILURE Macros**: Fixed incorrect behavior when these macros were used with statements returning or throwing, ensuring they rigorously detect expected fatal or non-fatal failures.
+
+### 3. Dynamic Test Registration and Execution
+- **RegisterTest Consistency Checks**: Patched incorrect crashes or silent failures when dynamically registering tests with inconsistent fixture types within the same test suite, enforcing stricter runtime validation to catch user errors early.
+
+- **Parameterized and Typed Tests Instantiation Fixes**: Corrected bugs causing failures when instantiating parameterized tests or type-parameterized tests, especially related to `INSTANTIATE_TEST_SUITE_P` and `REGISTER_TYPED_TEST_SUITE_P`. Ensures that tests without proper instantiation are reported correctly or optionally suppressed with the provided macros.
+
+### 4. Death Test Stability Enhancements
+- **Death Test Style and Thread Handling Improvements**: Fixed issues in the 'threadsafe' death test style, including proper ordering to run death tests first and correct child process spawning strategy to avoid hangs or unwanted side effects in multi-threaded environments.
+
+- **Improved Diagnostic Messages for Death Test Failures**: Enhanced failure output clarity when death tests unexpectedly pass or when the exit code or signal does not match the expectation.
+
+### 5. Mocking Error Handling and Output
+- **Detection of Leaked Mocks**: Strengthened mock leak detection under various flag settings, preventing false negatives or false positives, and ensuring users are notified when mock objects are leaked unintentionally.
+
+- **Better Handling of Expectations Lifecycles**: Fixed failures in mocks involving `.RetiresOnSaturation()` and cardinality controls, improving the behavior when expectations expire or get satisfied without causing unexpected failures.
+
+- **Enhanced Error Messages for Mismatched Arguments and Ordering**: Improved diagnostic messages when mocks receive unexpected calls, argument mismatches, or calls arrive out of sequence, aiding quicker debugging.
+
+### 6. Platform and Compiler Compatibility
+- **Cross-Platform Stability Updates**: Addressed platform-specific bugs affecting stack trace depth handling, return codes interpretation, and failure signal handling on Windows and POSIX systems.
+
+- **Wide String Assertion Fixes**: Fixed assertion macros working with wide strings (`wchar_t*`, `std::wstring`) to print readable UTF-8 output correctly on failures.
+
+---
+
+## Practical Impact
+These fixes contribute to a more predictable and user-friendly testing experience by:
+
+- Ensuring test execution halts correctly on fatal errors.
+- Guaranteeing accurate test outcome reporting in console and XML/JSON formats.
+- Providing actionable, clear diagnostics and trace information during test failures.
+- Increasing reliability of death tests in multithreaded, cross-platform contexts.
+- Improving the robustness of mocking frameworks and expectation management.
+
+Users encountering flaky failures, skipped tests still running, or confusing assertion messages are encouraged to verify their code against these fixes.
+
+---
+
+## Troubleshooting & Best Practices
+
+- When tests continue executing after an `ASSERT_*` macro failure unexpectedly, ensure you are not catching fatal failures unintentionally; use `HasFatalFailure()` checks or enable the AssertionException listener as a safeguard.
+
+- Use `SCOPED_TRACE` for adding contextual information to failures — particularly useful in loops and nested function calls to identify failure origins.
+
+- For dynamic or parameterized tests, always pair your `TEST_P` declarations with corresponding `INSTANTIATE_TEST_SUITE_P` macro calls to avoid unexpected failures or silent skips.
+
+- In death tests, avoid side effects on the parent process state, and utilize the recommended naming conventions for death test suites to guarantee proper ordering.
+
+- When working with mocks, prefer `NiceMock` or `StrictMock` wrappers depending on your verbosity requirements and confirm you are using `MOCK_METHOD` macros properly with correct qualifiers.
+
+---
+
+## References and Further Reading
+
+- [GoogleTest Primer](https://google.github.io/googletest/primer.html)
+- [Advanced GoogleTest Topics](https://google.github.io/googletest/advanced.html)
+- [Mock Behavior and Expectations Guide](https://google.github.io/googletest/gmock_cook_book.html)
+- [Death Tests API](https://google.github.io/googletest/advanced.html#death-tests)
+- [Test Event Listeners](https://google.github.io/googletest/advanced.html#extending-googletest-by-handling-test-events)
+
+For detailed API behavior, see:
+- [`testing::Test`](https://google.github.io/googletest/reference/testing.html#class-testing_1_1Test)
+- [`testing::TestSuite`](https://google.github.io/googletest/reference/testing.html#class-testing_1_1TestSuite)
+- [`testing::TestInfo`](https://google.github.io/googletest/reference/testing.html#class-testing_1_1TestInfo)
+
+---
+
+For user support and community discussions, visit:
+- [GitHub Issues](https://github.com/google/googletest/issues)
+- [Stack Overflow GoogleTest tag](https://stackoverflow.com/questions/tagged/googletest)
+
+---
+
+## Contribution & Reporting
+
+Users are encouraged to report any bugs or unexpected behavior to the project's GitHub Issues page, following the contribution guidelines and providing reproducible code snippets or logs when possible. Contributions to fix issues or improve tests are welcome.
+
+---

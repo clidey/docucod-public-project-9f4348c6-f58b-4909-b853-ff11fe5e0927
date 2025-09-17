@@ -1,0 +1,173 @@
+---
+title: "System Requirements & Supported Platforms"
+description: "Review the C++ standard version, compilers, operating systems, and build tools officially supported by GoogleTest and GoogleMock. Ensure your environment matches the requirements to avoid common compatibility issues."
+---
+
+# System Requirements & Supported Platforms
+
+Ensure your development and build environment aligns with the officially supported system requirements for GoogleTest and GoogleMock. This guarantees compatibility, reliable builds, and smooth integration with your C++ testing workflows.
+
+---
+
+## 1. C++ Standard Version
+
+- GoogleTest requires a C++17-compliant compiler environment.
+- To enforce C++17 during build, specify the standard in your build system, for example in CMake:
+
+```cmake
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+```
+
+- If specifying at compiler command line is necessary, use appropriate flags such as `-std=c++17` for GCC or Clang.
+
+---
+
+## 2. Supported Operating Systems
+
+GoogleTest officially supports a wide array of common platforms to fit diverse developer needs.
+
+### Officially Supported Platforms Include:
+
+- **Linux** (multiple distributions)
+- **Windows** (desktop, MinGW, Windows Mobile with some considerations)
+- **Mac OS X** (including Xcode projects)
+- **FreeBSD**
+- **OpenBSD**
+- **NetBSD**
+- **Solaris**
+- **AIX**
+- **HP-UX**
+- **QNX**
+- **Fuchsia** (not officially supported; use caution)
+- **Cygwin**
+- **DragonFly BSD**
+- **GNU Hurd**
+- **Haiku**
+- **z/OS**
+
+> Note: Some platforms like Fuchsia are included but not officially supported, potentially leading to compatibility risks.
+
+---
+
+## 3. Supported Compilers
+
+The officially supported compilers are those that provide full C++17 support and are tested regularly by GoogleTest maintainers.
+
+Typical supported compilers include:
+
+- GCC 7 and later
+- Clang 5 and later
+- MSVC 2017 Update 3 and later
+- Other platform-specific compilers meeting C++17 requirements
+
+It is essential to verify your compiler version supports the appropriate C++ standard and features needed by GoogleTest.
+
+---
+
+## 4. Build Systems & Integration Support
+
+GoogleTest integrates primarily with two build systems, with capabilities available for others via community support.
+
+### Bazel
+
+- Fully supported.
+- The `BUILD.bazel` files specify platform constraints and build configurations.
+- Notable platform settings include explicit support for Windows, QNX, FreeBSD, OpenBSD.
+
+### CMake
+
+- Community-supported.
+- Provides a `CMakeLists.txt` enabling flexible GoogleTest builds.
+- Allows building GoogleTest standalone or embedded as a subdirectory in existing projects.
+- Supports options such as:
+  - `BUILD_GMOCK` to include GoogleMock
+  - `INSTALL_GTEST` for installation management
+  - `GTEST_HAS_ABSL` when integrating Abseil and RE2 libraries
+- Requires CMake 3.16 or later for best compatibility.
+
+> See [Installing with CMake](https://cmake.org/) for installation instructions and usage.
+
+### Other Build Environments
+
+- Custom or manual build integration is feasible by including GoogleTest headers and linking provided libraries.
+
+---
+
+## 5. Multi-threading and Exception Support
+
+- GoogleTest is thread-safe on platforms with pthread support.
+- Exception handling depends on compiler and build flags.
+- You can control thread safety and exception catching via compile flags and macros such as:
+  - `GTEST_HAS_PTHREAD` for pthread availability
+  - `-DGTEST_HAS_PTHREAD=1` / `0` to override pthread detection
+  - `-DGTEST_HAS_EXCEPTIONS=1` / `0` based on exception support
+
+---
+
+## 6. Runtime and Platform Dependencies
+
+- For POSIX-based systems, dependencies include access to standard libraries like pthread, regex, and file system capabilities.
+- On Windows, GoogleTest uses system APIs to provide synchronization and file system functions.
+- For platforms without native file systems or environment variables (e.g., embedded), functionality may be limited.
+
+---
+
+## 7. Notes on Platform-Specific Differences
+
+- Windows requires specific handling of CRT linkage when linking GoogleTest dynamically versus statically. Use the CMake option `gtest_force_shared_crt` to control this.
+- On Linux and macOS, system tools like `make`, `ninja`, or Xcode are used depending on how GoogleTest is built.
+- Some platforms lack full support for POSIX regular expressions; GoogleTest switches to simplified regex implementations in those cases.
+
+---
+
+## 8. Practical Tips to Ensure Compatibility
+
+1. **Verify Compiler Version and Flags**
+
+   Ensure your compiler fully supports C++17. Use `--version` commands or IDE settings to confirm.
+
+2. **Use Supported Build Tools**
+
+   Prefer Bazel or CMake as they offer streamlined integration and tested build configurations.
+
+3. **Link Correct Libraries**
+
+   When using Abseil or RE2, ensure they are linked appropriately if building GoogleTest with `GTEST_HAS_ABSL=1`.
+
+4. **Address Platform-Specific Build Flags**
+
+   Adjust compiler and linker flags for your platform as indicated in the `BUILD.bazel` and `CMakeLists.txt` files.
+
+5. **Test the Setup Early**
+
+   Build and run the included GoogleTest sample tests to validate your environment.
+
+---
+
+## 9. Where to Find Detailed Platform Support Info
+
+For an updated matrix of supported compilers, platforms, and build tools, consult:
+
+- The [Google foundational C++ support policy](https://opensource.google/documentation/policies/cplusplus-support)
+- The [Foundational C++ Support Matrix](https://github.com/google/oss-policies-info/blob/main/foundational-cxx-support-matrix.md)
+
+---
+
+## 10. Next Steps
+
+- Review the [Installing with CMake](../prerequisites-and-installation/installation-cmake) or [Installing with Bazel](../prerequisites-and-installation/installation-bazel) guides to set up your build environment.
+- Follow the [Project Setup & Integration](../configuration-and-first-test/project-setup) page to add GoogleTest to your project.
+- Validate your installation using the [Validating Your Installation](../troubleshooting-and-validation/validate-setup) guide.
+
+---
+
+## References and Resources
+
+- [GoogleTest GitHub Repository](https://github.com/google/googletest)
+- [Official GoogleTest Documentation main page](https://github.com/google/googletest/blob/main/docs/primer.md)
+- [Supported Platforms & Build Tool Integrations](../../overview/integration-and-ecosystem/supported-platforms-build-tools)
+- Bazel build files: [`BUILD.bazel`](https://github.com/google/googletest/blob/main/BUILD.bazel)
+- CMake build script: [`CMakeLists.txt`](https://github.com/google/googletest/blob/main/CMakeLists.txt)
+
+---

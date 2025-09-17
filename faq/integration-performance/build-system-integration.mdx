@@ -1,0 +1,193 @@
+---
+title: "Build System and Platform Integration"
+description: "FAQs about using GoogleTest/GoogleMock with different build systems (CMake, Bazel, custom), platform-specific considerations, and troubleshooting integration problems across operating systems."
+---
+
+# Build System and Platform Integration FAQ
+
+This FAQ addresses common questions and challenges encountered when integrating GoogleTest and GoogleMock into various build systems and platforms. Whether you're using CMake, Bazel, or custom build tools, or targeting diverse operating systems, this guide will help you smoothly incorporate GoogleTest and GoogleMock into your projects and troubleshoot common issues.
+
+---
+
+## 1. General Integration Questions
+
+### How do I include GoogleTest/GoogleMock in my project’s build system?
+
+- **With CMake:** Add GoogleTest and GoogleMock as subdirectories or via `FetchContent`. Use `target_link_libraries` to link against `gtest`, `gtest_main`, `gmock`, or `gmock_main`. See [Installing with CMake](../getting-started/prerequisites-and-installation/installation-cmake.md) and the `googlemock/CMakeLists.txt` for details.
+
+- **With Bazel:** Use existing `@com_google_googletest` repositories or workspace rules to fetch GoogleTest and GoogleMock. Define `cc_test` targets with appropriate deps.
+
+- **Custom Builds:** Compile GoogleTest and GoogleMock sources along with your tests. Link against static or shared libraries as needed.
+
+### Should I link against `gtest_main` or write my own `main()` function?
+
+- Most users should link with `gtest_main` or `gmock_main`; these provide a ready-to-use `main()` that initializes and runs all tests.
+- If you require custom setup or command-line flag parsing, write your own `main()` and call `testing::InitGoogleTest()` and `RUN_ALL_TESTS()` manually (see [Writing the main() Function](../guides/getting-started/primer-essential-features.md#writing-the-main-function)).
+
+### How do I build GoogleMock alongside GoogleTest?
+
+- GoogleMock depends on GoogleTest, so ensure you build and link GoogleTest first.
+- When using CMake, `googlemock/CMakeLists.txt` adds GoogleTest as a subdirectory automatically.
+- Link your targets against `gmock` or `gmock_main` to use mocking features.
+
+---
+
+## 2. CMake-Specific Questions
+
+### What are the recommended steps to add GoogleMock to a CMake project?
+
+1. Include GoogleMock via `add_subdirectory(googletest/googlemock)` or use `FetchContent` to download it.
+2. Link your test targets with `gmock_main` or `gmock` and `gtest` libraries.
+3. Use `target_include_directories` as needed, though `gmock` and `gmock_main` provide the include dirs transitively.
+
+### How do I control building GoogleMock’s internal tests?
+
+- Use the `gmock_build_tests` option (OFF by default).
+- Enable it by passing `-Dgmock_build_tests=ON` to CMake.
+- Run tests with `make test` or `ctest`.
+
+### How can I build GoogleMock and GoogleTest as shared libraries?
+
+- Set `BUILD_SHARED_LIBS=ON` before configuring CMake.
+- Use compiler and linker flags to produce shared libraries.
+- GoogleMock’s scripts provide shared library targets like `shared_gmock_main`.
+
+### How do I resolve runtime errors related to MSVC runtime mismatches?
+
+- By default, GoogleTest and your project might link different C runtimes (static vs dynamic).
+- Set `gtest_force_shared_crt` to ON to build GoogleTest with dynamic CRT.
+- Configure your project’s runtime library settings to match.
+
+---
+
+## 3. Bazel Integration Questions
+
+### How do I integrate GoogleTest and GoogleMock in Bazel builds?
+
+- Use the official `@com_google_googletest` Bazel external repo.
+- Declare dependencies on `@com_google_googletest//:gtest` and `@com_google_googletest//:gmock` in your `cc_test` or `cc_library` rules.
+- Include the appropriate headers in your test sources.
+
+### Can I run tests using Bazel's test runner with GoogleTest?
+
+- Yes, Bazel runs GoogleTest-based tests seamlessly via `bazel test`.
+- Test outputs and results comply with Bazel’s reporting.
+
+---
+
+## 4. Platform-Specific Considerations
+
+### What platforms and compilers does GoogleTest/GoogleMock support?
+
+- Officially supports Linux, Windows (including MSVC), macOS, and select embedded platforms (ESP8266/ESP32/NRF52).
+- Requires a compiler compatible with C++17 standard.
+
+### Are there special considerations for Arduino or embedded platforms?
+
+- For Arduino platforms (ESP8266, ESP32, NRF52), GoogleTest uses `setup()` and `loop()` entry points instead of `main()`.
+- Initialization is done in `setup()`, and tests are run repeatedly in `loop()`.
+- See `googlemock/src/gmock_main.cc` for the platform detection and special main loop code.
+
+### How does GoogleTest handle wide character command-line arguments on Windows?
+
+- On Windows, `InitGoogleTest` can handle wide strings (UNICODE).
+- Use the provided `main` in `gtest_main` or write your own using `InitGoogleTest(&argc, argv)`.
+
+---
+
+## 5. Common Integration Problems & Troubleshooting
+
+### My tests are not being discovered or executed. What should I check?
+
+- Ensure you link with `gtest_main` or `gmock_main`, or provide a `main()` that calls `RUN_ALL_TESTS()`.
+- Confirm your testing source files are compiled and linked properly.
+- Verify your tests are defined using `TEST()`, `TEST_F()`, or other valid macros.
+- Run with verbose output flags (e.g., `--gtest_verbose=info`).
+
+### Linking errors related to GoogleTest/GoogleMock symbols?
+
+- Make sure the GoogleTest/GoogleMock sources or libraries are compiled and linked.
+- Avoid mixing static and shared libraries incorrectly.
+- Ensure runtime library settings (MSVC) or pthread linkage (Linux) are correctly set.
+- For pthread issues, define `-DGTEST_HAS_PTHREAD=1` or adjust compiler/linker flags.
+
+### The tests crash or behave unexpectedly after integrating GoogleMock?
+
+- Verify that GoogleMock’s expectations are set before running tests.
+- Check initialization: call `testing::InitGoogleMock(&argc, argv)` instead of just `InitGoogleTest`.
+- Use verbosity flags (`--gmock_verbose=info`) to get detailed diagnostics.
+
+### How do I debug integration or linking issues?
+
+- Use tools like `ldd` (Linux) or Dependency Walker (Windows) to check linked libraries.
+- Confirm include directories point to the correct GoogleTest/GoogleMock headers.
+- Build GoogleTest and GoogleMock from source with debugging flags enabled for insights.
+
+---
+
+## 6. Practical Tips and Best Practices
+
+- Prefer linking with `gmock_main` to get a pre-packaged `main()` when using mocks.
+- Avoid calling `RUN_ALL_TESTS()` multiple times; call it only once.
+- Use CMake options to tailor builds, such as `gmock_build_tests` and `BUILD_SHARED_LIBS`.
+- For continuous integration, ensure that your build scripts properly initialize GoogleTest and GoogleMock flags.
+- Enable verbose flags (`--gtest_verbose=info` and `--gmock_verbose=info`) to troubleshoot runtime behavior.
+- When targeting embedded platforms, consult the specific entry point requirements.
+
+---
+
+## 7. Additional Resources
+
+- [GoogleTest Primer](../guides/getting-started/primer-essential-features.md) — Learn basics of writing and running tests.
+- [GoogleMock Cookbook](../guides/getting-started/mocking-basics.md) — Learn mocking concepts and usage.
+- [Installing with CMake](../getting-started/prerequisites-and-installation/installation-cmake.md) — Detailed CMake integration.
+- [Integration and Ecosystem Overview](../overview/integration-and-ecosystem/supported-platforms-build-tools.md) — Platforms and build tools supported.
+
+---
+
+_This FAQ aims to empower you to integrate GoogleTest and GoogleMock effectively across your build environments and platforms, helping you avoid common pitfalls and leverage the framework’s robustness._
+
+
+---
+
+### Example Build Integration Snippet Using CMake
+
+```cmake
+# Download and add GoogleTest + GoogleMock
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/refs/tags/release-1.17.0.zip
+)
+FetchContent_MakeAvailable(googletest)
+
+# Add your test executable
+add_executable(my_tests test_main.cpp foo_test.cpp)
+
+# Link with gmock_main (includes gtest and mocks)
+target_link_libraries(my_tests PRIVATE gmock_main)
+
+# Enable testing
+enable_testing()
+add_test(NAME my_tests COMMAND my_tests)
+```
+
+---
+
+### Special Note on Entry Points for Embedded Platforms
+
+For ESP8266, ESP32, or NRF52 devices with Arduino, your test program does not use `main()` as the entry point. Instead, it uses:
+
+```c++
+void setup() {
+  testing::InitGoogleMock();
+}
+
+void loop() {
+  RUN_ALL_TESTS();
+}
+```
+
+This allows tests to run in the embedded system's runtime loop.
+
+---

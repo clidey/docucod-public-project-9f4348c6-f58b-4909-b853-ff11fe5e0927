@@ -1,0 +1,184 @@
+---
+title: "Your First Test: Hello, GoogleTest!"
+description: "Jump into writing and running your inaugural test case. This walkthrough covers creating a simple C++ test file, compiling and running it, and interpreting the test output. Includes a basic test and common options for invocation."
+---
+
+# Your First Test: Hello, GoogleTest!
+
+Welcome to your first step in mastering GoogleTest! This guide will walk you through writing and running your initial C++ test case using GoogleTest. Our goal is to get you confident in creating a simple test file, compiling it, running your test, and interpreting the output. By the end, you'll understand how to write basic assertions and run tests efficiently.
+
+---
+
+## 1. Creating Your First Test File
+
+Let's start by crafting a simple C++ test source file that GoogleTest can execute.
+
+### Step 1: Create a new file named `hello_test.cc`
+
+Open your favorite code editor and create the following file in your project directory.
+
+```cpp
+#include <gtest/gtest.h>
+
+// A basic test case demonstrating GoogleTest assertions.
+TEST(HelloTest, BasicAssertions) {
+  // Verify that two strings are different.
+  EXPECT_STRNE("hello", "world");
+
+  // Verify that the arithmetic result matches expectation.
+  EXPECT_EQ(7 * 6, 42);
+}
+```
+
+### What this does:
+
+- The macro `TEST()` defines a new test named `BasicAssertions` in the `HelloTest` test suite.
+- Inside the test, `EXPECT_STRNE` checks that the two strings are not equal.
+- `EXPECT_EQ` checks that the expression `7 * 6` equals `42`.
+
+This is a straightforward way to write tests using GoogleTest's assertion macros.
+
+---
+
+## 2. Compiling Your Test
+
+To run your test, compile it into an executable linked against GoogleTest.
+
+If you used CMake to set up GoogleTest dependencies (see the [Installing with CMake](installation-cmake.md) guide), add the following CMake commands to your `CMakeLists.txt` file:
+
+```cmake
+# Enable tests in CMake
+enable_testing()
+
+# Declare the test executable
+add_executable(hello_test hello_test.cc)
+
+# Link GoogleTest
+target_link_libraries(hello_test GTest::gtest_main)
+
+# Discover tests automatically
+include(GoogleTest)
+gtest_discover_tests(hello_test)
+```
+
+### Building commands from the command line
+
+Run these commands from your project root:
+
+```bash
+cmake -S . -B build
+cmake --build build
+```
+
+This will generate and build your test executable.
+
+---
+
+## 3. Running the Test
+
+Navigate to the build directory and run tests using the CTest tool (which integrates with CMake tests):
+
+```bash
+cd build
+ctest
+```
+
+### Expected output:
+
+```none
+Test project /your/path/build
+    Start 1: HelloTest.BasicAssertions
+1/1 Test #1: HelloTest.BasicAssertions ........   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.01 sec
+```
+
+This confirms your test ran successfully.
+
+Alternatively, you can run the test binary directly:
+
+```bash
+./hello_test
+```
+
+You'll see output indicating which tests ran, and whether they passed or failed.
+
+---
+
+## 4. Interpreting the Test Output
+
+When your tests run, GoogleTest provides clear console output including:
+
+- Names of test suites and tests run
+- Pass/fail status for each
+- Any assertion failure messages with source file location
+- A summary of all test results
+
+For example, a failure might look like:
+
+```none
+[ RUN      ] HelloTest.BasicAssertions
+/path/to/hello_test.cc:8: Failure
+Expected: (7 * 6) == 41, actual: 42 vs 41
+[  FAILED  ] HelloTest.BasicAssertions (0 ms)
+
+[----------] 1 test from HelloTest (0 ms total)
+
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] HelloTest.BasicAssertions
+```
+
+This helps quickly locate the problem in your code.
+
+---
+
+## 5. Common Options for Running Your Tests
+
+GoogleTest supports numerous command-line flags to customize test execution:
+
+| Flag | Description |
+|-------|-------------|
+| `--gtest_filter=TestSuiteName.TestName` | Runs a specific test by name |
+| `--gtest_repeat=n` | Repeat tests n times |
+| `--gtest_shuffle` | Randomize test order |
+| `--gtest_break_on_failure` | Pause execution on first failure (ideal for debugging) |
+
+To see more flags, run your test binary with `--help`.
+
+---
+
+## Troubleshooting Tips
+
+- **Test fails due to missing GoogleTest headers or libs:** Confirm GoogleTest is installed and your build system correctly links it. Consider using the CMake `FetchContent` module for ease.
+- **Tests do not run or discover:** Ensure you call `gtest_discover_tests()` if using CMake, or run the test binary directly.
+- **Compilation errors:** Verify your compiler supports C++17 as GoogleTest requires it.
+
+---
+
+## Next Steps
+
+Now that you've written and run your first GoogleTest unit test:
+
+- Explore writing more complex tests using fixtures - see [GoogleTest Primer](primer.md).
+- Learn about available assertions in [Assertions Reference](reference/assertions.md).
+- Try out the [GoogleTest Samples](samples.md) for practical test examples.
+- Integrate GoogleMock for mocking capabilities - start with [Getting Started with GoogleMock](getting-started/configuration-and-first-test/first-mock-example).
+
+---
+
+## Resources
+
+- [GoogleTest User's Guide Overview](index.md)
+- [Writing Your First Unit Test with CMake](docs/quickstart-cmake.md)
+- [GoogleTest Assertions](reference/assertions.md)
+- [GoogleTest Primer](docs/primer.md)
+
+Visit the [GoogleTest GitHub repository](https://github.com/google/googletest/) for source samples and further materials.
+
+---
+
+Congratulations! You have successfully taken your first step with GoogleTest. Keep experimenting and expanding your test suite to improve your C++ software quality.

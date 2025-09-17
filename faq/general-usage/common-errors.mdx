@@ -1,0 +1,156 @@
+---
+title: "Resolving Common Build and Runtime Errors"
+description: "Guidance on interpreting and fixing frequent build or runtime errors encountered when using the frameworks. Covers linking issues, missing symbols, and tips for debugging test failures or test runner issues."
+---
+
+# Resolving Common Build and Runtime Errors
+
+This page provides clear guidance on diagnosing and resolving frequent build and runtime errors you might encounter when working with GoogleTest and GoogleMock frameworks. It focuses on typical linking issues, missing symbols, common runtime failures, and offers actionable debugging tips for test runners and test failures.
+
+---
+
+## 1. Common Build Errors
+
+### 1.1 Linking Failures
+
+Linker errors often arise when the test binary cannot find symbols or definitions needed by GoogleTest or your test code. Key causes include:
+
+- **Missing GoogleTest Libraries**: Ensure you link against `gtest` and `gtest_main` (or provide your own `main()` function).
+- **Undefined References to Static Data Members**: If your test fixture class contains `static const` non-`constexpr` members, define them outside the class in a `.cc` file without an initializer. Example:
+
+  ```cpp
+  // In your header
+  class FooTest : public ::testing::Test {
+    static const int kValue = 42;  // declaration
+  };
+
+  // In one implementation file
+  const int FooTest::kValue;  // definition without initializer
+  ```
+
+- **Conflicting Fixtures**: All tests in the same test suite must use the same fixture class. Defining two fixtures with identical names in different namespaces and using them in the same test suite causes link-time conflicts.
+
+### 1.2 Macro-related Compilation Issues
+
+- Using `ASSERT_*` macros in non-void-returning functions results in compile errors like "void value not ignored as it ought to be". These macros must only be used in `void` functions since they abort the current function on failure.
+- Streaming failure messages with `EXPECT_*` and `ASSERT_*` macros requires the streamed objects to support `operator<<`.
+
+## 2. Common Runtime Errors
+
+### 2.1 Unexpected Test Failures
+
+- **Assertion Failures**: Check your test conditions, especially for `EXPECT_` vs `ASSERT_` usage. Use non-fatal `EXPECT_` assertions when you want the test to continue after a failure, and `ASSERT_` variants when no further testing should proceed.
+- **Mocking Errors**: For errors like unmet expectations or unexpected mock calls, verify that `EXPECT_CALL` setups match actual call patterns.
+
+### 2.2 Death Test Issues
+
+Death tests run code expected to terminate the process in a subprocess. Common pitfalls include:
+
+- **Test Hangs or Segmentation Faults**: Occurs if multiple threads exist in the parent process. Prefer writing death tests that minimize thread usage outside the `EXPECT_DEATH` block or use the safer but slower `--gtest_death_test_style=threadsafe` flag.
+- **State Changes Not Persisting After Death Tests**: Side effects in death tests are confined to the subprocess and do not affect the parent process. Avoid relying on shared state mutation across death test boundaries.
+
+### 2.3 Test Environment Setup Failures
+
+- Setup or teardown functions (`SetUpTestSuite()`, `TearDownTestSuite()`, or global test environments) may generate failures early. Verify these do not use fatal assertions incorrectly and that resources are valid before tests run.
+
+## 3. Debugging Test Failures and Test Runner Issues
+
+### 3.1 Using Assertion Macros Effectively
+
+- **Custom Failure Messages**: Use streaming operators (`<<`) to add explanatory text to failed assertions. For example:
+
+  ```cpp
+  EXPECT_EQ(foo.Bar(), 42) << "Bar() returned unexpected value";
+  ```
+
+- **Predicate Assertions**: Use `EXPECT_PRED*` or `EXPECT_PRED_FORMAT*` for complex boolean checks with detailed error messages.
+
+- **Using Matchers**: Utilize `EXPECT_THAT(value, matcher)` from gMock to write expressive assertions with rich diagnostics.
+
+### 3.2 Handling Fatal Failures in Subroutines
+
+GoogleTest fatal assertions (`ASSERT_*`, `FAIL()`) abort only the current function, not the entire test. To propagate fatal failures up the call stack:
+
+- Check for failures after subroutine calls using `HasFatalFailure()`. For example:
+
+  ```cpp
+  MySubroutine();
+  if (HasFatalFailure()) return;
+  ```
+
+- Use macros like `ASSERT_NO_FATAL_FAILURE(MySubroutine());` to assert that subroutines do not fatally fail.
+
+- Alternatively, install a listener to throw exceptions on failure if your environment supports exceptions.
+
+### 3.3 Using `SCOPED_TRACE` for Better Diagnostics
+
+Use `SCOPED_TRACE` to annotate failure locations when calling common subroutines multiple times or in loops for easier failure context:
+
+```cpp
+SCOPED_TRACE("Index i=" << i);
+EXPECT_EQ(SomeCheck(i), true);
+```
+
+### 3.4 Diagnosing Assertion Failures
+
+- Interpret failure messages carefully; GoogleTest prints the expression that failed, evaluated values, and optionally diffs for string comparisons.
+
+- Use matchers and predicate assertions to improve failure messages.
+
+### 3.5 Test Execution Control Flags
+
+Control test runs using command line flags:
+
+- `--gtest_filter`: Run only tests matching the filter pattern.
+- `--gtest_list_tests`: List all available tests without running.
+- `--gtest_repeat`: Repeat tests multiple times for catching flakiness.
+- `--gtest_break_on_failure`: Pause execution when an assertion fails, facilitating debugging.
+
+For details, run your test binary with `--help`.
+
+## 4. Common Pitfalls and Best Practices
+
+- **Avoid underscores (`_`) in Test Suite and Test Names**: Underscores can cause name conflicts or reserved-symbol issues.
+
+- **Ensure Default Constructors**: Test fixtures must have a default constructor for GoogleTest to instantiate them correctly.
+
+- **Properly Define Static Members**: Define static constants outside the class when not `constexpr` to avoid undefined reference errors.
+
+- **Handle Mock Expectations Carefully**: Mock expectations should be set before the test code that triggers them.
+
+- **For Death Tests with Mocks, Allow Leak Detection**: Use `Mock::AllowLeak()` to avoid false positives on mock leaks when death test subprocesses exit early.
+
+## 5. Troubleshooting Checklist
+
+| Issue                              | Check                                                | Resolution / Tip                                  |
+|----------------------------------|-----------------------------------------------------|-------------------------------------------------|
+| Linking errors                   | Linked GoogleTest libraries?                         | Link `gtest`, `gtest_main` or provide `main()`     |
+| Undefined static const references | Static const members defined outside of class?     | Define separately in a `.cc` file                     |
+| Assertion macro in non-void return | Fatal assertions in non-void functions              | Use `EXPECT_*` macros or refactor function to `void` |
+| Death test hangs or crashes      | Multiple threads in parent process                   | Minimize threads outside death test; use `threadsafe` style |
+| Unexpected failures              | Incorrect matcher or assertion usage                 | Confirm `EXPECT_CALL` sequences and assertions   |
+| Test environment failures        | Fatal failures in `SetUpTestSuite()` or env setup   | Check setup code and avoid fatal assertions if possible |
+
+## 6. Additional Debugging Tips
+
+- Enable verbose output with `--gtest_verbose=level` to get detailed logs.
+- Use `GTEST_SKIP()` to conditionally skip tests when preconditions fail.
+- For flaky tests, use `--gtest_repeat` to isolate intermittent failures.
+- Consult the test output’s printed stack traces to identify failure locations.
+
+## 7. Summary
+
+This page compiles practical solutions to common build-time and run-time failures encountered in GoogleTest and GoogleMock workflows. By adhering to the outlined best practices for fixture design, assertion usage, and test execution, you can maintain reliable, maintainable test suites and debug failures efficiently.
+
+---
+
+### Related Documentation
+
+- [Assertions Reference](reference/assertions.md) — full details on assertion macros and failure diagnostics.
+- [Advanced GoogleTest Topics](docs/advanced.md) — in-depth guidance on assertion strategies and death tests.
+- [Getting Started FAQs](faq/general-usage/getting-started-questions) — common installation and initial troubleshooting.
+- [Mock Behavior and Expectations](guides/core-workflows/mock-behavior-expectations) — for troubleshooting mocking issues.
+- [Testing Death and Exception Cases](guides/advanced-patterns/testing-death-and-exception-cases) — best practices for death tests.
+- [Integrating with Build Systems](guides/advanced-patterns/integration-build-systems) — linker configuration tips.
+
+---

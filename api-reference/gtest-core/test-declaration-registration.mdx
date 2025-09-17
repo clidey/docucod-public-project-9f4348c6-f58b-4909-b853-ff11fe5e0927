@@ -1,0 +1,294 @@
+---
+title: "Test Declaration & Registration (TEST, TEST_F, TEST_P)"
+description: "Describes macros for declaring and registering standard, fixture, and parameterized tests. Explains usage patterns, required signatures, and lifecycle hooks for creating maintainable test suites. Includes best practices for cross-platform test definition."
+---
+
+# Test Declaration & Registration (TEST, TEST_F, TEST_P)
+
+GoogleTest offers powerful macros to declare and register tests, enabling developers to write standard tests, fixture-based tests, and parameterized tests with ease and maintainability. This page delves into these core test declaration macros—`TEST`, `TEST_F`, and `TEST_P`—explaining their usage patterns, required method signatures, lifecycle hooks, and best practices to ensure cross-platform consistency and scalable test suites.
+
+---
+
+## 1. Overview of Test Declaration Macros
+
+The test declaration macros in GoogleTest allow you to define tests with varying degrees of complexity:
+
+- **`TEST`**: For simple, standalone tests without a fixture.
+- **`TEST_F`**: For tests that utilize a test fixture, sharing setup/teardown code.
+- **`TEST_P`**: For value-parameterized tests that run multiple scenarios with different input parameters.
+
+Each macro registers the test with the framework automatically, associating test suite and test names with their corresponding code.
+
+### 1.1 Naming Conventions
+
+- Test suite names and test names must be valid C++ identifiers and should **not** contain underscores (`_`).
+- Tests in different test suites can share the same individual test name without conflict.
+- The test’s **full name** is constructed as `TestSuiteName.TestName`.
+
+### 1.2 Test Lifecycle Hooks
+
+- **`SetUpTestSuite()` and `TearDownTestSuite()`**: Static methods invoked once before and after all tests in a suite—used for expensive shared resource management.
+- **`SetUp()` and `TearDown()`**: Invoked before and after each test instance for per-test setup and cleanup.
+- For `TEST_F` and `TEST_P`, tests run inside an object of the fixture class (or derived class), enabling direct access to fixture members.
+
+---
+
+## 2. Simple Tests: `TEST`
+
+Use `TEST` to declare tests that do not require shared setup.
+
+```cpp
+TEST(SuiteName, TestName) {
+  // Test body.
+  EXPECT_EQ(ComputeValue(), 42);
+}
+```
+
+- Defines a function that the test runner executes.
+- Tests are independent and isolated.
+- Good for lightweight checks that don’t require setup complexity.
+
+---
+
+## 3. Fixture-Based Tests: `TEST_F`
+
+When tests share common data or setup logic, use `TEST_F` with a fixture class derived from `testing::Test`:
+
+### 3.1 Defining a Test Fixture
+
+```cpp
+class MyFixture : public testing::Test {
+ protected:
+  MyFixture() {
+    // Setup code shared by all tests.
+    resource_ = new Resource();
+  }
+
+  ~MyFixture() override {
+    delete resource_;
+  }
+
+  void SetUp() override {
+    // Per-test setup code.
+  }
+
+  void TearDown() override {
+    // Per-test cleanup.
+  }
+
+  Resource* resource_;
+};
+```
+
+### 3.2 Defining Tests with the Fixture
+
+```cpp
+TEST_F(MyFixture, DoesAction) {
+  EXPECT_TRUE(resource_->IsInitialized());
+  // Test body has access to Resource*
+}
+```
+
+- GoogleTest creates and destroys a fresh fixture object for each test.
+- You can safely modify state in one test without affecting others.
+
+### 3.3 Static Suite-level Setup
+
+Define static `SetUpTestSuite()` and `TearDownTestSuite()` for expensive resource management shared across tests:
+
+```cpp
+class MyFixture : public testing::Test {
+ public:
+  static void SetUpTestSuite() {
+    // Called before all tests in the suite
+  }
+
+  static void TearDownTestSuite() {
+    // Called after all tests in the suite
+  }
+};
+```
+
+Prefer to declare these as **public** if using `TEST_P` to avoid linkage issues.
+
+---
+
+## 4. Parameterized Tests: `TEST_P`
+
+To test the same logic under multiple scenarios, use **value-parameterized tests** via `TEST_P`:
+
+### 4.1 Writing a Parameterized Fixture
+
+Derive from `testing::TestWithParam<T>`, where `T` is the parameter type:
+
+```cpp
+class MyParamTest : public testing::TestWithParam<int> {
+  // Shared test code and helpers
+};
+```
+
+### 4.2 Defining Parameterized Tests
+
+Use `TEST_P` to declare tests that take parameters:
+
+```cpp
+TEST_P(MyParamTest, HandlesValues) {
+  int param = GetParam();
+  EXPECT_TRUE(Process(param));
+}
+```
+
+- Use `GetParam()` to access the current test parameter.
+- The test suite shares setup from the fixture.
+
+### 4.3 Instantiating Parameterized Tests
+
+Use `INSTANTIATE_TEST_SUITE_P` to instantiate and register all the parameter variants:
+
+```cpp
+INSTANTIATE_TEST_SUITE_P(ValidRange, MyParamTest,
+                         testing::Range(1, 10));
+```
+
+Here, tests will run for parameters 1 through 9.
+
+Other parameter generators include `Values()`, `ValuesIn()`, and `Combine()` for tuples.
+
+### 4.4 Custom Test Name Generation
+
+Optionally, provide a function or lambda to generate descriptive test suffix names:
+
+```cpp
+INSTANTIATE_TEST_SUITE_P(Examples, MyParamTest, testing::Values(1, 2, 3),
+    [](const testing::TestParamInfo<int>& info) {
+      return "Param_" + std::to_string(info.param);
+    });
+```
+
+Names must be unique, non-empty, and should only contain alphanumeric characters.
+
+---
+
+## 5. Best Practices for Test Declaration
+
+- **Names**: Avoid underscores in suite and test names; prefer descriptive, meaningful identifiers.
+- **Fixture Usage**: Use fixtures to share setup and reduce duplication.
+- **Parameterized Testing**: Leverage `TEST_P` and parameter generators to cover multiple cases with concise code.
+- **Isolation**: GoogleTest creates fresh fixture objects per test, so state modifications do not leak across tests.
+- **Lifecycle Hooks**: Use `SetUpTestSuite()`/`TearDownTestSuite()` for heavy initialization and cleanup shared by many tests.
+- **Public Access**: Always put `MOCK_METHOD` declarations in `public` sections in mock classes, even if mocking `protected` or `private` methods.
+
+---
+
+## 6. Under the Hood: Test Registration
+
+Each of these macros ultimately:
+
+- Generates a class derived from `testing::Test`
+- Implements the `TestBody()` method which contains the test code
+- Registers the test factory to GoogleTest’s internal registry for automatic discovery and execution
+
+The framework calls `SetUpTestSuite()`, `SetUp()`, `TestBody()`, `TearDown()`, and `TearDownTestSuite()` at the appropriate points.
+
+You can also dynamically register tests programmatically using `testing::RegisterTest()` for advanced cases.
+
+---
+
+## 7. Troubleshooting and Common Pitfalls
+
+<AccordionGroup title="Common Issues and Solutions">
+<Accordion title="Misuse of `TEST` and `TEST_F`">
+Ensure you use `TEST_F` only after defining a test fixture class. Trying to use `TEST_F` with non-existent fixtures leads to compiler errors.
+</Accordion>
+<Accordion title="Incorrect `SetUp()` Name">
+Make sure you spell `SetUp()` correctly (capital U). GoogleTest validates this by a private method; misspelling will cause compilation errors.
+</Accordion>
+<Accordion title="Underscores in Test Names">
+Avoid underscores in test names for portability and compatibility, as recommended in Google C++ Style Guides.
+</Accordion>
+</AccordionGroup>
+
+---
+
+## 8. Example: Defining Standard, Fixture, and Parameterized Tests
+
+```cpp
+// Simple test without fixture
+TEST(MathTest, Addition) {
+  EXPECT_EQ(2 + 2, 4);
+}
+
+// Fixture class
+class QueueTest : public testing::Test {
+ protected:
+  void SetUp() override { q_.Enqueue(42); }
+  Queue<int> q_;
+};
+
+TEST_F(QueueTest, IsNotEmpty) {
+  EXPECT_FALSE(q_.IsEmpty());
+}
+
+// Parameterized test fixture
+class IsEvenTest : public testing::TestWithParam<int> {};
+
+TEST_P(IsEvenTest, ReturnsTrueForEvenNumbers) {
+  int n = GetParam();
+  EXPECT_EQ(n % 2, 0);
+}
+
+INSTANTIATE_TEST_SUITE_P(EvenNumbers, IsEvenTest, testing::Values(2, 4, 6, 8));
+```
+
+---
+
+## 9. Summary Diagram of Test Declaration Flow
+
+```mermaid
+flowchart TD
+  A[Define TEST / TEST_F / TEST_P macro] --> B[Compile-time: generates test class with TestBody()]
+  B --> C[Static Registration before RUN_ALL_TESTS()]
+  C --> D[At runtime: Test runner discovers registered tests]
+  D --> E[For each test: Create fixture object (if TEST_F/TEST_P)]
+  E --> F[Run SetUpTestSuite() once per suite]
+  F --> G[Run SetUp() before test]
+  G --> H[Run TestBody()]
+  H --> I[Run TearDown() after test]
+  I --> J[Run TearDownTestSuite() once after last test]
+  J --> K[Report results]
+```
+
+---
+
+## 10. References and Further Reading
+
+- [GoogleTest Primer: Essential Features](https://google.github.io/googletest/guides/getting-started/primer-essential-features)
+- [GoogleTest Testing Reference](https://google.github.io/googletest/reference/testing)
+- [GoogleTest Advanced Topics: Parameterized and Typed Tests](https://google.github.io/googletest/guides/advanced#value-parameterized-tests)
+- [gMock Cookbook: Mocking Basics](https://google.github.io/googletest/gmock_cook_book.html)
+- [Mocking Reference](https://google.github.io/googletest/reference/mocking)
+
+For detailed macro usage, parameters, and behavior, consult the [GoogleTest Core API Reference](https://google.github.io/googletest/api/core).
+
+---
+
+## 11. Tips and Best Practices
+
+<Tip>
+- Use `TEST` for quick, simple tests that don't require resource sharing.
+- When tests share setup/teardown logic, define a fixture and use `TEST_F`.
+- Leverage `TEST_P` with generators like `Values()` and `Range()` for scalable, data-driven tests.
+- Avoid over-specifying expectations in tests to increase maintainability.
+- Keep test names descriptive but succinct, following naming conventions.
+- Use `SetUpTestSuite` and `TearDownTestSuite` wisely for performance optimization when dealing with expensive initialization.
+</Tip>
+
+<Warning>
+Using the wrong macro or improperly defining fixtures leads to compiler errors, so always define the fixture class before using it.
+</Warning>
+
+---
+
+This page should be your definitive reference for declaring and registering tests with GoogleTest, enabling you to create reliable, maintainable, and scalable test suites across platforms.
+
+<Source url="https://github.com/google/googletest" paths={[{"path": "googletest/include/gtest/gtest.h", "range": "296-568"}, {"path": "docs/reference/testing.md", "range": "43-587"}]} />
