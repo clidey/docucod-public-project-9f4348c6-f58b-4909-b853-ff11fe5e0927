@@ -1,0 +1,269 @@
+---
+title: "Test Suite Performance and Optimization Tips"
+description: "Advice on speeding up test execution, minimizing flakiness, running tests in parallel, and best practices for writing fast, maintainable tests at scale. Includes pointers for CI integrations and test runner usage."
+---
+
+# Test Suite Performance and Optimization Tips
+
+This page provides targeted advice for improving the speed, reliability, and maintainability of your GoogleTest test suites. Whether you maintain a small project or operate at scale, these best practices help you minimize test flakiness, run tests efficiently, and integrate smoothly with CI pipelines.
+
+---
+
+## 1. Understanding Test Execution Performance
+
+GoogleTest runs each test independently to ensure isolation and reproducibility. However, some test suites may take longer to run due to expensive setup, potentially shared resources, or flaky tests. Knowing how GoogleTest controls test execution allows you to optimize your tests effectively.
+
+- Tests are grouped into **test suites**, each sharing setup/teardown if specified.
+- GoogleTest creates a fresh fixture object per test, calling `SetUp()` and `TearDown()` for each.
+- Expensive shared resources can instead be initialized once per suite in `SetUpTestSuite()` and cleaned in `TearDownTestSuite()`.
+
+<Tip>
+Using `SetUpTestSuite()` to share resources avoids repeated expensive initializations.
+Ensure you carefully manage shared state to prevent test interference.
+</Tip>
+
+## 2. Speeding Up Tests by Sharing Resources
+
+### Use Per-Test-Suite Setup and Teardown
+
+If your tests repeatedly set up common expensive objects, refactor initialization into static members with `SetUpTestSuite()` and tear-down in `TearDownTestSuite()`. Example:
+
+```cpp
+class FooTest : public testing::Test {
+ protected:
+  static void SetUpTestSuite() {
+    shared_resource_ = new ExpensiveResource(...);
+  }
+
+  static void TearDownTestSuite() {
+    delete shared_resource_;
+    shared_resource_ = nullptr;
+  }
+
+  static ExpensiveResource* shared_resource_;
+};
+
+ExpensiveResource* FooTest::shared_resource_ = nullptr;
+```
+
+This ensures the resource is created once and reused, significantly shortening total test time.
+
+### Avoid Unnecessary Work in `SetUp()` and Constructors
+
+Ensure per-test initialization only handles what's absolutely needed. Avoid recreating heavy objects inside `SetUp()` if shared setup suffices.
+
+---
+
+## 3. Reducing Flakiness and Improving Reliability
+
+### Avoid Shared Mutable Global State
+
+Tests must remain independent. Shared mutable state causes unexpected order dependencies and flakiness. Use fixtures and parameterization to isolate state.
+
+### Be Aware of Non-Deterministic Tests
+
+Tests that rely on time, random numbers, or external services may fail intermittently. Use fixed seeds and mocks/stubs to stabilize tests.
+
+<Tip>
+Use the `--gtest_repeat` flag to run flaky tests multiple times and identify intermittent failures.
+</Tip>
+
+### Using `GTEST_SKIP()` for Conditional Skips
+
+If preconditions are unmet, gracefully skip tests at runtime via `GTEST_SKIP()`. This clarifies intent and prevents false failures.
+
+```cpp
+TEST(MyTest, RequiresSomeFeature) {
+  if (!IsFeatureAvailable()) {
+    GTEST_SKIP() << "Feature not available on this platform.";
+  }
+  // Test body...
+}
+```
+
+### Using `SCOPED_TRACE` to Clarify Failures in Parameterized or Loop Tests
+
+When tests involve iterations or parameter sets, `SCOPED_TRACE` adds contextual info to failure messages, simplifying debugging.
+
+```cpp
+for (int i = 0; i < 5; ++i) {
+  SCOPED_TRACE("Iteration " + std::to_string(i));
+  EXPECT_TRUE(DoWork(i));
+}
+```
+
+---
+
+## 4. Running Tests in Parallel and Distributed Environments
+
+### Test Sharding
+
+GoogleTest natively supports **sharding** your tests across multiple machines via environment variables:
+
+- `GTEST_TOTAL_SHARDS`: Total number of shards (machines).
+- `GTEST_SHARD_INDEX`: Zero-based index of the current shard.
+
+This allows each shard to run a subset of tests to reduce total wall-clock time.
+
+<Tip>
+Proper use of sharding requires an even distribution of tests and no inter-test dependencies.
+Example setup on 3 shards:
+
+```shell
+export GTEST_TOTAL_SHARDS=3
+export GTEST_SHARD_INDEX=0  # on machine 1
+./my_test_binary
+
+export GTEST_SHARD_INDEX=1  # on machine 2
+./my_test_binary
+
+export GTEST_SHARD_INDEX=2  # on machine 3
+./my_test_binary
+```
+</Tip>
+
+### Parallel Test Execution in Build Systems
+
+Leverage build tools and CI systems offering parallel test runners like Bazel and CTest to execute independent tests concurrently.
+
+- Running tests in parallel requires thread-safe test code and mocks.
+- Use GoogleMock's thread-safety mechanisms when using mocks in parallel tests.
+- For extreme cases, run separate test binaries in parallel.
+
+See the [Integration with Bazel and CMake](guides/advanced-patterns/integration-build-systems.md) for platform-specific guidance.
+
+---
+
+## 5. Best Practices for Writing Fast, Maintainable Tests
+
+### Use Parameterized and Typed Tests
+
+Maximize test reuse with parameterized tests (`TEST_P`, `INSTANTIATE_TEST_SUITE_P`) and typed tests (`TYPED_TEST_SUITE`, `TYPED_TEST`). This reduces code duplication and encourages comprehensive test coverage.
+
+### Write Clear, Deterministic Assertions
+
+Avoid tests whose outcomes depend on timing, ordering, random seeds, or external systems.
+
+### Avoid Excessive and Hidden Dependencies
+
+Explicitly mock external dependencies using GoogleMock to avoid slow or flaky tests caused by unpredictable externalities.
+
+### Use `EXPECT_*` vs `ASSERT_*` Thoughtfully
+
+Prefer `EXPECT_*` assertions when you want multiple failures reported in the same test; use `ASSERT_*` only if subsequent test code is pointless after failure.
+
+### Use `GTEST_SKIP()` to Handle Unsupported Configurations
+
+Skip tests gracefully on unsupported platforms rather than failing.
+
+---
+
+## 6. Logging and Reporting Performance Metrics
+
+### Using `RecordProperty` to Track Metrics
+
+You can add custom key-value metrics per test or test suite which are output in XML/JSON reports:
+
+```cpp
+TEST(MyTest, Example) {
+  ::testing::Test::RecordProperty("ExecutionTimeMs", 123);
+  // ...
+}
+```
+
+Use this for performance regression tracking.
+
+### Generate Profile Reports in XML or JSON
+
+Use the `--gtest_output=xml:path` or `--gtest_output=json:path` flag to generate machine-readable output.
+
+---
+
+## 7. Troubleshooting Common Performance Issues
+
+### Tests Too Slow to Run
+
+- Profile individual tests for hotspots.
+- Move expensive setups to `SetUpTestSuite()` or global `Environment` objects.
+- Split large tests into smaller test cases.
+
+### Flaky Tests
+
+- Use repeated runs with `--gtest_repeat` to catch intermittent failures.
+- Add `SCOPED_TRACE` to identify failure context.
+- Remove global mutable state or use locks if concurrency involved.
+
+### Death Tests Slowing Execution
+
+- Minimize side effects in death tests.
+- Use “threadsafe” death test style (flag `--gtest_death_test_style=threadsafe`) if multithreading is unavoidable.
+
+### Failing to Skip Tests Appropriately
+
+- Confirm `GTEST_SKIP()` usage in the correct test scope.
+- Check test filters and disabled prefixes (`DISABLED_`).
+
+---
+
+## 8. Integrating Performance Tips in CI
+
+Maximize your CI efficiency:
+
+- Run tests in shards or parallel runners.
+- Generate XML/JSON reports for post-run analysis.
+- Enforce fail-fast (`--gtest_fail_fast`) in iterative development.
+- Isolate and disable flaky tests until stabilized.
+
+<Tip>
+Use `--gtest_fail_if_no_test_selected` to enforce that tests matching your filter run, avoiding silent skips.
+</Tip>
+
+---
+
+## 9. Additional Resources and Next Steps
+
+- Read the [Best Practices and Performance Optimization Guide](guides/advanced-patterns/best-practices-performance.md) for deeper strategies.
+- Use the [Test Declaration & Registration Reference](api-reference/gtest-core/test-declaration-registration.md) to better understand test structures.
+- Review [Test Lifecycle Concepts](concepts/core-architecture/test-lifecycle.md) to grasp test execution flow.
+- Consult [Test Environment Configuration](api-reference/gtest-core/test-environment-configuration.md) to manage global setup optimally.
+
+---
+
+## 10. Summary
+
+Optimizing GoogleTest test suite performance requires strategic sharing of setup, minimizing shared mutable state, using parameterized and typed tests effectively, and leveraging parallel and distributed execution environments. Use GoogleTest's rich runtime options and reporting to diagnose flaky or slow tests, and integrate with CI for scalable test workflows.
+
+For detailed step-by-step guidance and examples, please refer to the linked documents below.
+
+---
+
+# Reference Links
+
+- [GoogleTest Advanced Guide](docs/advanced.md)
+- [Test Declaration & Registration](api-reference/gtest-core/test-declaration-registration.md)
+- [Test Environment Configuration](api-reference/gtest-core/test-environment-configuration.md)
+- [Sharding Support](docs/advanced.md#distributing-test-functions-to-multiple-machines)
+- [Parameterized and Typed Tests](guides/core-workflows/parameterized-typed-tests.md)
+- [Best Practices and Performance Optimization](guides/advanced-patterns/best-practices-performance.md)
+- [FAQ: Test Performance and Tuning](faq/integration-performance/test-performance-tuning.md)
+
+---
+
+# Example: Running Tests in Parallel with Sharding
+
+```bash
+export GTEST_TOTAL_SHARDS=4
+export GTEST_SHARD_INDEX=0
+./my_test_binary &
+export GTEST_SHARD_INDEX=1
+./my_test_binary &
+export GTEST_SHARD_INDEX=2
+./my_test_binary &
+export GTEST_SHARD_INDEX=3
+./my_test_binary &
+wait
+```
+
+This will divide the test load across 4 parallel processes, reducing total wall-clock time.
+
+---
