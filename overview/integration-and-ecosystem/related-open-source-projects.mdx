@@ -1,0 +1,94 @@
+---
+title: "Related Projects & Ecosystem Extensions"
+description: "Showcase tools and third-party projects in the GoogleTest ecosystem—test runners, editors, adapters, and listeners—that enhance developer workflows or offer advanced reporting and UX. Encourage further exploration for advanced needs."
+---
+
+# Related Projects & Ecosystem Extensions
+
+Explore the vibrant ecosystem around GoogleTest, where third-party tools and projects extend its functionality, boost developer productivity, and offer advanced reporting and user experience improvements. This page highlights key utilities in the GoogleTest ecosystem—including test runners, editors, adapters, and listeners—and guides you to discover options that fit complex or specialized testing needs.
+
+---
+
+## Why Explore Ecosystem Extensions?
+
+GoogleTest provides a solid foundation for C++ testing, but complex projects often require tailored workflows and integrations beyond the core framework. Ecosystem extensions empower you to:
+
+- **Automate test execution:** Run tests efficiently and integrate with CI/CD pipelines.
+- **Visualize and navigate test results:** Gain clear insights through advanced GUI test runners and integration in popular IDEs.
+- **Customize reporting formats:** Leverage adapters and listeners for rich, standardized, or domain-specific reporting.
+- **Enhance development experience:** Use plugins and extensions that integrate GoogleTest into editors and debuggers, simplifying test writing and troubleshooting.
+
+Whether you want to speed up daily test runs, integrate with modern IDEs, or implement comprehensive analytics, tools in this space can help you unlock new levels of productivity.
+
+---
+
+## Key Categories of Ecosystem Extensions
+
+### 1. Test Runners
+
+Test runners automate the discovery and execution of your GoogleTest-based tests. They often provide enhanced features such as parallel test execution to reduce test cycle times, filtering capabilities, and rich progress visualization.
+
+- **GTest Runner:** A Qt5-based GUI application for Windows and Linux offering an interactive test execution and reporting interface.
+- **gtest-parallel:** A command-line utility enabling your test binary to run tests concurrently, dramatically improving test throughput in suitable environments.
+
+### 2. IDE and Editor Integrations
+
+Smooth integration with your coding environment accelerates test development and debugging:
+
+- **GoogleTest Adapter:** A Visual Studio Code extension that displays GoogleTest results in a tree view, supporting running and debugging tests directly inside the editor.
+- **C++ TestMate:** Another VS Code extension that complements test discovery and execution workflows, enhancing user experience with GoogleTest.
+- **Cornichon:** A Gherkin DSL parser to generate stub code for GoogleTest, facilitating behavior-driven development within your C++ codebase.
+
+These tools reduce the friction between test writing and running, allowing you to maintain a tight feedback loop.
+
+### 3. Reporting Adapters and Listeners
+
+Various listeners report test execution data in forms suitable for consumption by third-party tools:
+
+- **GTest TAP Listener:** Implements the Test Anything Protocol (TAP), allowing integration with TAP-compatible test harnesses and CI systems.
+- **Custom Listeners:** Many third parties or organizations create their own listeners by subclassing GoogleTest's listener API to capture detailed results, generate reports, or hook into logging frameworks.
+
+Listeners let you tailor output formats to your environment's needs, often enabling smoother integration with automated quality gates or dashboards.
+
+---
+
+## Encouraging Exploration
+
+This ecosystem page is a gateway to a growing and evolving community around GoogleTest. We encourage you to:
+
+- Try out different test runners and see which fits your project size and team workflow.
+- Explore IDE integrations that enhance your daily productivity.
+- Consider writing custom listeners if your reporting or test orchestration pipelines have specialized requirements.
+
+Check out the associated external open-source repositories, many of which are hosted on GitHub, and contribute back to improve the testing ecosystem.
+
+---
+
+## Related Documentation & Resources
+
+- [GoogleTest Primer](primer.md): Learn to write your first tests.
+- [GoogleMock for Dummies](gmock_for_dummies.md): Understand mocking basics.
+- [Mocking Reference](reference/mocking.md): API details for mock expectations.
+- [GoogleTest Core Capabilities Overview](overview/product-intro-core-features/core-capabilities-overview.mdx): Core framework feature insights.
+- [Supported Platforms & Build Tool Integrations](overview/integration-and-ecosystem/supported-platforms-build-tools.mdx): Setup and platform details.
+
+### External Resources
+
+- [GTest Runner (Qt5-based)](https://github.com/nholthaus/gtest-runner)
+- [GoogleTest Adapter for VS Code](https://marketplace.visualstudio.com/items?itemName=DavidSchuldenfrei.gtest-adapter)
+- [GTest TAP Listener](https://github.com/kinow/gtest-tap-listener)
+- [gtest-parallel](https://github.com/google/gtest-parallel)
+- [Cornichon Gherkin Parser](https://pypi.org/project/cornichon/)
+
+---
+
+## Next Steps
+
+Once you determine your environment and workflow needs:
+
+1. Identify and try out ecosystem tools that address those needs.
+2. Explore their setup and usage guides in their respective repositories.
+3. If needed, integrate the tools with your CI/CD pipelines for automated continuous testing.
+4. Consider extending GoogleTest with custom listeners to meet specific reporting or monitoring goals.
+
+By embracing the ecosystem, you can elevate your team’s testing experience from simple unit test running to a sophisticated, tightly integrated quality assurance process.
