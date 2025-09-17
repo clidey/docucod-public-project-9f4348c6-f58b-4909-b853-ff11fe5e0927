@@ -1,0 +1,182 @@
+---
+title: "Validating Your Installation"
+description: "Use built-in commands and sample tests to ensure your GoogleTest environment is working. Confirm with successful test runs and readable output to guarantee a solid foundation for your testing journey."
+---
+
+# Validating Your Installation
+
+Ensure your GoogleTest environment is correctly set up by running built-in tests and verifying error-free execution. This page guides you to confirm your installation using sample test programs and inspect test output, giving confidence that GoogleTest is ready for your testing tasks.
+
+---
+
+## 1. Introduction
+
+After installing and integrating GoogleTest into your development environment, the next critical step is validating the installation. This ensures that everything is configured correctly and the framework functions as expected.
+
+This guide provides actionable instructions to run GoogleTest's included sample tests and interpret their outputs as a baseline verification step.
+
+---
+
+## 2. Running Built-in Verification Tests
+
+GoogleTest includes several self-tests inside the repository that serve to validate the core functionality of the framework. Running these tests helps uncover issues like build misconfiguration or linkage problems early.
+
+### Step 1: Build GoogleTest and Test Programs
+
+> **Note:** Ensure you have built GoogleTest before running tests. Follow build instructions using CMake, Bazel, or your preferred system.
+
+```bash
+# Example (standalone build with CMake)
+git clone https://github.com/google/googletest.git -b v1.17.0
+dcd googletest
+dmkdir build
+dcd build
+cmake .. -DBUILD_GMOCK=OFF
+make
+```
+
+### Step 2: Run the GoogleTest Verification Tests
+
+GoogleTest provides several internal test binaries you can run.
+
+Navigate to the `googletest/test` directory where test binaries are located (or the build output directory).
+
+Run the main GoogleTest verification executable:
+
+```bash
+./gtest_unittest
+```
+
+This test suite covers many core internal GoogleTest tests.
+
+---
+
+## 3. Understanding Test Output
+
+When running the verification tests, observe the following:
+
+- **Success Messages:** You should see output indicating tests are running and passing, for example:
+
+  ```
+  [==========] Running 90 tests from 43 test suites.
+  [  PASSED  ] 31 tests.
+  ```
+
+- **Failures:** Some tests are intentionally designed to fail to verify GoogleTest correctly reports failures. Failing tests will be summarized at the end, ensuring GoogleTest's failure detection works.
+
+- **Skipped Tests:** Certain tests may be marked skipped; this is expected in some contexts.
+
+### Key Expectations
+
+- Execution should complete without crashes or hangs.
+- Output should clearly label each test and its result as `[       OK ]` or `[  FAILED  ]`.
+- Total tests run and passed count shown at the end.
+
+<Note>
+If your output differs significantly (e.g., no tests running or total failures not matching expectations), review your build setup or integration steps. Issues with linking or runtime environment may be the cause.
+</Note>
+
+---
+
+## 4. Sample Validation Test Walkthrough
+
+To manually validate your GoogleTest setup, you can write and run a minimal test:
+
+Create `sample_test.cc` with contents:
+
+```cpp
+#include <gtest/gtest.h>
+
+// A simple test that succeeds.
+TEST(SampleTest, SanityCheck) {
+  EXPECT_EQ(1 + 1, 2);
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+```
+
+### Build & Run
+
+```bash
+# Compile with g++ (adjust include and lib paths as necessary)
+g++ sample_test.cc -lgtest -lgtest_main -pthread -o sample_test
+
+# Run test
+./sample_test
+```
+
+Expected output:
+
+```
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SampleTest
+[ RUN      ] SampleTest.SanityCheck
+[       OK ] SampleTest.SanityCheck
+[----------] 1 test from SampleTest (0 ms total)
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+```
+
+This confirms your GoogleTest setup runs and reports tests correctly.
+
+---
+
+## 5. Common Pitfalls & Remedies
+
+| Issue                                   | Diagnosis & Fix                             |
+|----------------------------------------|-------------------------------------------|
+| No tests run / zero tests detected      | Make sure tests are linked and test files compiled. Confirm test names follow GoogleTest naming constraints (no underscores in test suite or test names). |
+| Linking errors (undefined references) | Verify library paths and linking order. Link against `-lgtest`, `-lgtest_main`, and `-pthread` on Linux/macOS. Windows users ensure proper project references and linkage. |
+| Tests fail to compile                  | Ensure C++17 or later is used as GoogleTest requires it. Confirm include paths and namespaces. |
+| Test output unreadable or unexpected  | Verify command line flags, such as `--gtest_filter` or `--gtest_brief`. Run with no extra flags for baseline output. |
+
+---
+
+## 6. Next Steps
+
+Having verified GoogleTest installation:
+
+- Explore [Your First Test](../configuration-and-first-test/hello-world-test.md) to write real tests for your code.
+- Learn about [Test Fixtures](../primer.md#same-data-multiple-tests) for better test organization.
+- Review [Assertion Macros](../reference/assertions.md) to write effective test checks.
+- Setup GoogleMock for mocking dependencies: see [First Mock Example](../configuration-and-first-test/first-mock-example.md).
+
+---
+
+## 7. Troubleshooting Resources
+
+If you encounter any issues:
+
+- Check the [Getting Started Prerequisites](../prerequisites-and-installation/system-requirements.md) for environment setup.
+- Refer to [Troubleshooting Common Setup Issues](../troubleshooting-and-validation/common-issues.md).
+- Consult the [GoogleTest FAQ](../../faq/general-usage/getting-started-questions.md) for common user questions.
+
+---
+
+## 8. Summary
+
+Validating your GoogleTest installation by running in-repo tests and minimal sample tests provides a reliable foundation before adopting GoogleTest in your projects. This validation ensures that your environment correctly supports GoogleTest's requirements and that the framework behaves as expected.
+
+---
+
+## Reference
+
+- GoogleTest Test Macros and Assertions: [Testing Reference](../../reference/testing.md)
+- Writing your first test: [Hello, GoogleTest!](../configuration-and-first-test/hello-world-test.md)
+- GoogleTest Primer: [Primer](../../primer.md)
+- Advanced Topics and Troubleshooting: [Advanced Topics](../../advanced.md)
+
+---
+
+<Check>
+Perform the following to confirm your installation:
+- Successfully build and run `gtest_unittest` or equivalent tests
+- Validate test output shows expected passing/failing tests
+- Run a minimal test binary and observe a passing test report
+- Address any build or runtime issues with the provided troubleshooting info
+</Check>
