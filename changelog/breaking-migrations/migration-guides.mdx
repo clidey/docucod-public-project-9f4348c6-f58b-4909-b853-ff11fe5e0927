@@ -1,0 +1,236 @@
+---
+title: "Migration Guides"
+description: "Practical guidance for upgrading from previous major versions. Step-by-step instructions and code snippets help you navigate common pitfalls, with direct references to updated requirements like C++17."
+---
+
+# Migration Guides
+
+Practical guidance for upgrading from previous major versions. Step-by-step instructions and code snippets help you navigate common pitfalls, with direct references to updated requirements like C++17.
+
+---
+
+## 1. C++17 Compliance
+
+As of GoogleTest version 1.17.0, a minimum C++17 standard compliance is required. This upgrade ensures better language feature support and improved compatibility.
+
+**Migration Steps:**
+
+- Update your build system to use `-std=c++17` or equivalent for your compiler.
+- Ensure all dependencies and project files are compatible with C++17.
+- Review your code for deprecated or removed features incompatible with C++17.
+
+**Example:**
+
+```cmake
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+```
+
+## 2. Mocking Syntax Changes
+
+GoogleMock now exclusively supports the generic `MOCK_METHOD` macro for declaring mock methods. The older family of `MOCK_METHODn` macros is deprecated and should be migrated.
+
+### Migration Example:
+
+Before:
+
+```cpp
+MOCK_CONST_METHOD1(Foo, bool(int));
+MOCK_METHOD2_WITH_CALLTYPE(STDMETHODCALLTYPE, Bar, void(float, double));
+```
+
+After:
+
+```cpp
+MOCK_METHOD(bool, Foo, (int), (const));
+MOCK_METHOD(void, Bar, (float, double), (Calltype(STDMETHODCALLTYPE)));
+```
+
+### Key Points:
+
+- Method signature is split into return type, method name, argument list, and an optional qualifier list.
+- Qualifiers include `const`, `override`, `noexcept`, `Calltype(...)`, and reference qualifiers like `ref(&)`.
+- Parentheses are necessary around argument types containing commas.
+
+Additional guidance is available at the [Mocking Reference](reference/mocking.html#MOCK_METHOD).
+
+## 3. Default Mock Method Access Level
+
+All `MOCK_METHOD` declarations must be placed inside the `public:` section of your mock class, regardless of the original access level of the method in the base class.
+
+**Why:**
+
+- This ensures `EXPECT_CALL` and `ON_CALL` can access mock methods without accessibility issues.
+
+Example:
+
+```cpp
+class MockFoo : public Foo {
+ public:
+  MOCK_METHOD(int, GetValue, (), (override));
+  MOCK_METHOD(void, SetValue, (int), (override));
+};
+```
+
+## 4. Strictness Modifiers for Mock Classes
+
+Migrating to the latest patterns may also involve more explicit use of mock strictness wrappers.
+
+- Use `NiceMock<T>` to suppress warnings about uninteresting calls.
+- Use `StrictMock<T>` to enforce failure on unexpected calls.
+
+Example:
+
+```cpp
+using ::testing::NiceMock;
+NiceMock<MockFoo> mock_foo;
+EXPECT_CALL(mock_foo, SomeMethod());
+```
+
+## 5. Mock Non-Virtual Methods
+
+You can now mock non-virtual methods by defining mock classes unrelated by inheritance to the real classes. Use `MOCK_METHOD` for all mock methods, omitting qualifiers like `override` as they are unrelated.
+
+This change supports compile-time dependency injection with class templates.
+
+Example:
+
+```cpp
+class ConcreteClass {
+ public:
+  void DoWork();
+};
+
+class MockConcrete {
+ public:
+  MOCK_METHOD(void, DoWork, ());
+};
+
+template <typename T>
+class Client {
+ public:
+  void Run() { obj_.DoWork(); }
+ private:
+  T obj_;
+};
+
+Client<ConcreteClass> production_client;
+Client<MockConcrete> test_client;
+```
+
+## 6. Using `ON_CALL` vs `EXPECT_CALL`
+
+The newer best practice encourages using `ON_CALL` to define default behaviors when method calls are expected but not necessarily verified, reserving `EXPECT_CALL` for strict expectation setting.
+
+This approach reduces test brittleness by avoiding over-specification.
+
+```cpp
+ON_CALL(mock, Method(_)).WillByDefault(Return(0));
+EXPECT_CALL(mock, Method(5));
+```
+
+Refer to [Mock Behavior and Expectations](guides/core-workflows/mock-behavior-expectations.md) for complete patterns.
+
+## 7. Ordering Expectations
+
+For control over call sequences, use the `InSequence` RAII and `Sequence` objects.
+
+Example of partial order across calls:
+
+```cpp
+using ::testing::Sequence;
+Sequence seq1, seq2;
+EXPECT_CALL(mock, Foo()).InSequence(seq1, seq2);
+EXPECT_CALL(mock, Bar()).InSequence(seq1);
+EXPECT_CALL(mock, Baz()).InSequence(seq2);
+```
+
+## 8. Delegate to Real or Fake Objects
+
+If you want your mock to reuse the real or fake object behavior, delegate default actions using `ON_CALL` with lambdas.
+
+Example:
+
+```cpp
+ON_CALL(*this, Method(_)).WillByDefault([this](ArgType arg) {
+  return real_obj_.Method(arg);
+});
+```
+
+## 9. Migration Tips for Move-only Types
+
+GoogleMock supports mocking methods that return or accept move-only types like `std::unique_ptr`.
+
+- Use `MOCK_METHOD` as usual without `override` for unrelated classes.
+- For move-only return values, use lambdas or actions rather than `Return(std::move(...))` repeatedly.
+
+Example:
+
+```cpp
+EXPECT_CALL(mock, MakeBuzz("text"))
+    .WillRepeatedly([](const std::string&) {
+      return std::make_unique<Buzz>();
+    });
+```
+
+## 10. Compiling Faster with Out-of-line Constructors
+
+To improve compilation times for large test suites with many mocks, move mock class constructors and destructors definitions out of header files into `.cc` files.
+
+Example:
+
+```cpp
+// In mock_foo.h
+class MockFoo : public Foo {
+ public:
+  MockFoo();
+  ~MockFoo();
+
+  MOCK_METHOD(int, DoSomething, (), (override));
+};
+
+// In mock_foo.cc
+MockFoo::MockFoo() {}
+MockFoo::~MockFoo() {}
+```
+
+## 11. Breaking Changes and Behavioral Updates
+
+Some changes in recent versions affect behavior:
+
+- Death tests run in separate subprocesses.
+- Strictness modes of mocks have become more fine-grained.
+- Underscores in test and test suite names can cause conflicts; avoid leading/trailing underscores.
+- `RUN_ALL_TESTS()` must have its return value checked by `main()`.
+
+Refer to the full details in the [Breaking Changes](changelog/breaking-migrations/breaking-changes.md) page.
+
+## 12. Helpful References and Resources
+
+- [Mocking Reference](reference/mocking.html)
+- [gMock Cookbook](docs/gmock_cook_book.md)
+- [Mock Behavior and Expectations](guides/core-workflows/mock-behavior-expectations.md)
+- [GoogleTest Primer](guides/getting-started/primer-essential-features.md)
+- [Testing Death and Exception Cases](guides/advanced-patterns/testing-death-and-exception-cases.md)
+
+---
+
+### Callouts
+
+<Tip>
+Begin migration with updating your build system to C++17 compliance to satisfy Google's baseline requirements.
+</Tip>
+
+<Warning>
+Do not mix old and new mock macros in the same codebase; prefer the unified modern `MOCK_METHOD` macro.
+</Warning>
+
+<Note>
+Using `NiceMock` and `StrictMock` can simplify managing warnings and errors from uninteresting calls during migration.
+</Note>
+
+---
+
+For detailed migration assistance, code samples, and troubleshooting, please consult the referenced pages and the official GoogleTest GitHub repository's Release Notes section.
+
+---
