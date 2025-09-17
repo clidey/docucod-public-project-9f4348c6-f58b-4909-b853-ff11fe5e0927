@@ -1,0 +1,158 @@
+---
+title: "Supported Platforms & Build Tool Integrations"
+description: "List the compilers, platforms, and build systems officially supported by GoogleTest. Highlight key integration points with CMake, Bazel, and others, enabling users to plan project adoption with confidence."
+---
+
+# Supported Platforms & Build Tool Integrations
+
+## Overview
+
+GoogleTest is designed to be a robust and portable C++ testing framework that seamlessly integrates across multiple compilers, platforms, and build systems. This page lists the officially supported environments and highlights the key integration points with popular build tools like CMake and Bazel. Whether you're starting a new project or integrating GoogleTest into an existing codebase, understanding these support boundaries enables confident planning and smooth adoption.
+
+---
+
+## Supported Compilers and Platforms
+
+GoogleTest supports a wide range of modern C++ environments consistent with Google's Foundational C++ Support Policy. It requires at least C++17 compatibility and proactively detects platform specifics to enable native features like threading and exception support where available.
+
+### Officially Supported Platforms
+
+- **Major Operating Systems:** Windows (desktop, MinGW), Linux (including Android variants), macOS, FreeBSD, OpenBSD, NetBSD, Solaris, AIX, HP-UX, Fuchsia, and several BSD flavors.
+- **Embedded and Special Platforms:** Limited support or unsupported on platforms such as Windows Mobile, Windows RT, QNX, ESP8266, Xtensa, and others where OS capabilities or C++ features are restricted.
+
+### Compiler Support
+
+- Modern versions of GCC, Clang, MSVC (Visual Studio 2017 Update 3 / MSVC 19.11 or newer), Intel LLVM, SunPro, IBM VisualAge (XL), and HP compilers.
+- Requires support for essential C++17 features and standard libraries.
+
+### Features Adapted Per Platform
+
+- Detection and utilization of POSIX threads (pthreads) where available, controlled via the `GTEST_HAS_PTHREAD` macro.
+- Use of platform-specific system calls and threading primitives to guarantee thread safety and robust synchronization.
+- Conditional use of exceptions, RTTI, and wide-string support based on compiler and platform capabilities.
+
+For a detailed platform matrix and compiler versions, see the policy and supported platforms table at: 
+[Google Foundational C++ Support Matrix](https://github.com/google/oss-policies-info/blob/main/foundational-cxx-support-matrix.md)
+
+---
+
+## Build System Integrations
+
+### CMake
+
+GoogleTest offers first-class support for CMake, facilitating easy and flexible integration:
+
+- **Standalone Build:** Clone the repository and run `cmake ..` within a build directory. You can optionally disable GoogleMock with `-DBUILD_GMOCK=OFF`.
+- **Integration Into Existing Projects:** Use `find_package(GTest CONFIG REQUIRED)` to locate installed GoogleTest libraries. Alternatively, use `add_subdirectory()` with the GoogleTest sources to embed the framework directly, ensuring consistent compiler and linker flags.
+  
+Example snippet to include GoogleTest as a subdirectory in your `CMakeLists.txt`:
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/5376968f6948923e2411081fd9372e71a59d8e77.zip
+)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+add_executable(my_test tests/my_test.cpp)
+target_link_libraries(my_test GTest::gtest_main)
+add_test(NAME my_test COMMAND my_test)
+```
+
+- **Platform-Specific Compiler Flags:** CMake configurations handle compiler warnings, exception handling flags, threading options, and dynamic vs static CRT linkage, adapting to MSVC, Clang, GCC, and others automatically.
+
+- **Threading:** If pthreads are available and not disabled, CMake will link against the appropriate threading libraries and set `GTEST_HAS_PTHREAD=1` accordingly.
+
+- **Dynamic Runtime Library Setting:** Special flags ensure that Visual Studio projects handle CRT linkage consistently between your tests and GoogleTest libraries, avoiding linker conflicts.
+
+### Bazel
+
+GoogleTest is fully supported with Bazel, Google's polyglot build system, enabling scalable and reproducible builds:
+
+- Bazel BUILD files are provided to build GoogleTest as libraries or tests.
+- The default Bazel targets include `gtest`, `gtest_main`, and `gtest_for_library` for flexible linkage.
+- Bazel handles platform-specific compiler flags, conditional dependencies (e.g., Abseil support), and platform constraints.
+- You can depend on `//googletest:gtest` in your Bazel build rules to link GoogleTest easily.
+
+### Other Build Systems
+
+While GoogleTest provides official support and integration examples mainly for CMake and Bazel, its modular design allows straightforward use with other build systems (e.g., Makefiles, Ninja, custom scripts).
+
+- Include GoogleTest source and headers manually.
+- Ensure to apply appropriate compiler flags for threading and C++17 standard.
+- Use the source files under `googletest/src` and headers under `googletest/include`.
+
+---
+
+## Practical Tips for Integration
+
+- **Use Provided CMake Options:** Leverage options like `gtest_force_shared_crt` to avoid runtime mismatches.
+- **Thread Safety:** Validate that your environment supports threading and set `GTEST_HAS_PTHREAD` as needed.
+- **Compiler Compatibility:** Confirm your compiler version meets minimum C++17 requirements.
+- **Dynamic vs Static GoogleTest Builds:** Decide if you want GoogleTest as a shared or static library, and configure your build appropriately with `DGTEST_CREATE_SHARED_LIBRARY` and `DGTEST_LINKED_AS_SHARED_LIBRARY`.
+- **Using GoogleMock:** If you don't require mocking, disable building GoogleMock with the proper CMake flags.
+
+---
+
+## Summary
+
+Supported platforms and build tools form the backbone of successful GoogleTest adoption. By clearly understanding the compatible environments and leveraging official integration points with CMake and Bazel, users ensure smooth setup, consistent behavior, and maintainable test infrastructure.
+
+For detailed instructions on actual integration workflows, see the related [Integrating with Bazel, CMake, and IDEs](https://github.com/google/googletest/blob/main/guides/advanced-patterns/integration-build-systems.md) guide.
+
+---
+
+## Related Documentation
+
+- [What is GoogleTest?](overview/product-intro-core-features/what-is-googletest) — Introduction to GoogleTest concepts.
+- [Core Capabilities: Testing and Mocking](overview/product-intro-core-features/core-capabilities-overview) — Key features overview.
+- [System Requirements & Supported Platforms](getting-started/prerequisites-and-installation/system-requirements) — Pre-installation platform checks.
+- [Installing with CMake](getting-started/prerequisites-and-installation/installation-cmake) — Step-by-step CMake build instructions.
+- [Installing with Bazel](getting-started/prerequisites-and-installation/installation-bazel) — Bazel build and setup guidance.
+
+---
+
+## Troubleshooting
+
+If integration issues arise:
+
+- Ensure your compiler supports C++17 and threading primitives.
+- Verify correct build flags related to exceptions, RTTI, and threading.
+- On Windows, check CRT linkage consistency between your project and GoogleTest.
+- Consult the [Troubleshooting Common Setup Issues](getting-started/troubleshooting-and-validation/common-issues) page.
+
+---
+
+## Next Steps
+
+After confirming your environment’s compatibility and choosing your build system, proceed to:
+
+- Set up your project with GoogleTest and write your first test.
+- Explore advanced integration features such as custom build flags and multi-threaded test cases.
+- Expand to mocking by enabling GoogleMock as needed.
+
+
+---
+
+### Code Example: Minimal CMake Setup for GoogleTest
+
+```cmake
+cmake_minimum_required(VERSION 3.14)
+project(MyTestProject CXX)
+
+# Enable GoogleTest
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/release-1.17.0.zip
+)
+FetchContent_MakeAvailable(googletest)
+
+add_executable(my_test test.cpp)
+target_link_libraries(my_test GTest::gtest_main)
+add_test(NAME my_test COMMAND my_test)
+```
+
+With this setup, you can quickly kickstart reliable and portable tests across all major supported platforms.
